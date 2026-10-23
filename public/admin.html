@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Админка</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="app.css?v=20261045">
+<style>
+  .ad{max-width:760px;margin:0 auto;padding:16px 16px 64px}
+  .ad h1{font-family:var(--display);font-size:26px;margin:4px 0 12px}
+  .ad h2{font-size:16px;margin:0 0 10px}
+  .ad a{color:var(--accent)}
+  .ad-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .ad-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px}
+  .ad-stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+  .ad-stat b{display:block;font-size:22px;font-family:var(--display)}
+  .ad-stat small{color:var(--muted);font-size:12px;line-height:1.2;display:block}
+  .ad-seg{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}
+  .ad-seg button,.ad-chip{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:7px 13px;font:inherit;font-size:14px;cursor:pointer}
+  .ad-seg button[aria-pressed="true"]{background:var(--cta);color:var(--cta-fg);border-color:var(--cta)}
+  .ad-search{width:100%;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:12px;padding:10px 12px;font:inherit;margin:0 0 10px}
+  .ad-card{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:0 0 8px;font:inherit;color:inherit;cursor:pointer}
+  .ad-card:hover{border-color:var(--accent)}
+  .ad-row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .ad-name{font-weight:600}
+  .ad-muted{color:var(--muted);font-size:13px}
+  .ad-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .ad-tag{font-size:12px;border-radius:999px;padding:2px 8px;background:var(--line);color:var(--fg)}
+  .ad-tag.new{background:var(--accent-soft);color:var(--hero-fg)}
+  .ad-tag.ok{background:var(--mint);color:var(--mint-fg)}
+  .ad-tag.warn{background:var(--butter);color:var(--butter-fg)}
+  .ad-tag.lav{background:var(--lav);color:var(--lav-fg)}
+  .ad-panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:0 0 12px}
+  .ad-kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
+  .ad-kv dt{color:var(--muted)}
+  .ad-kv dd{margin:0;overflow-wrap:anywhere}
+  .ad-list{list-style:none;margin:0;padding:0;font-size:14px}
+  .ad-list li{padding:6px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
+  .ad-list li:first-child{border-top:0}
+  .ad-list li span:last-child{color:var(--muted);white-space:nowrap}
+  .ad-btn{border:0;border-radius:12px;padding:9px 14px;font:inherit;font-size:14px;cursor:pointer;background:var(--cta);color:var(--cta-fg)}
+  .ad-btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+  .ad-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .ad-link{width:100%;border:1px dashed var(--accent);border-radius:10px;padding:9px;font:inherit;font-size:13px;background:var(--accent-soft);color:var(--fg);margin-top:8px}
+  .ad-fb{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:0 0 8px}
+  .ad-fb p{margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+  .ad-reply{background:var(--mint);color:var(--mint-fg);border-radius:10px;padding:8px 10px;font-size:14px;white-space:pre-wrap;margin:6px 0}
+  .ad-fb textarea{width:100%;min-height:80px;border:1px solid var(--line);border-radius:10px;padding:8px;font:inherit;background:var(--bg);color:var(--fg);margin-top:8px}
+  .ad-back{background:none;border:0;color:var(--accent);font:inherit;padding:4px 0;margin:0 0 6px;cursor:pointer}
+  .ad-empty{color:var(--muted);text-align:center;padding:24px 0}
+  .ad-bars{display:flex;gap:3px;align-items:flex-end;height:44px;margin-top:6px}
+  .ad-bars i{flex:1;background:var(--accent-soft);border-radius:3px 3px 0 0;min-height:2px}
+  .ad-bars i.on{background:var(--accent)}
+  .ad-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:12px;font-size:14px;z-index:9}
+  @media (max-width:520px){.ad-stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main class="ad" id="ad"><p class="ad-empty">Загружаю…</p></main>
+<script type="module" src="admin.js?v=20261045"></script>
+</body>
+</html>

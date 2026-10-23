@@ -1,0 +1,9 @@
+node_modules
+.wrangler
+.dev.vars
+media/.frames-*
+*.db
+*.db-*
+shots-sleep/
+shots-sleep.db*
+shots-sleep.db.login*

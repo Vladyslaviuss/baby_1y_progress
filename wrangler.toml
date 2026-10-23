@@ -1,0 +1,22 @@
+name = "rita-bot"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*", "/tg", "/setup", "/run-daily"]
+
+# Каждый день в 06:00 UTC (08:00–09:00 по Киеву): утренняя рассылка каждой семье.
+[triggers]
+crons = ["0 6 * * *"]
+
+[vars]
+APP_URL = "http://localhost:8787"
+DEV = "0"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rita"
+database_id = "REPLACE_AFTER_d1_create"
