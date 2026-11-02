@@ -1,0 +1,138 @@
+<title>Малыш в анимациях</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: большая сцена со схемой сверху, ниже — все упражнения мелко в одном стиле и легенда цветов. Токены как в приложении. */
+:root{
+  --bg:#f2f4f0; --card:#ffffff; --fg:#1c2932; --muted:#5b6a70; --line:#d6ddd8; --accent:#b8436f; --stage:#f7f8f5;
+  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#11171b;--card:#182128;--fg:#e4ebe8;--muted:#9aa9ad;--line:#2b363c;--accent:#ec7ea6;--stage:#141c21;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#11171b;--card:#182128;--fg:#e4ebe8;--muted:#9aa9ad;--line:#2b363c;--accent:#ec7ea6;--stage:#141c21;color-scheme:dark}
+/*PG_CSS*/
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body);margin:0;padding-inline:16px;padding-block:28px 64px}
+.wrap{max-width:980px;margin:0 auto;display:grid;gap:30px}
+h1,h2,h3{font-family:var(--display);font-weight:500;margin:0;line-height:1.2;text-wrap:balance}
+h1{font-size:clamp(26px,4.4vw,40px)} h2{font-size:21px} h3{font-size:15px}
+p{margin:0}
+.eyebrow{font:500 11.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lead{color:var(--muted);max-width:64ch}
+.stage{background:var(--stage);border:1px solid var(--line);border-radius:18px;overflow:hidden;padding:12px}
+.stage svg{display:block;width:100%;height:auto}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.group{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.group > span{font:500 11px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:7px 14px;font:500 14px var(--body);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.caption{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:baseline}
+.caption .mono{font:400 13px var(--mono);color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+.grid figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;display:grid;gap:6px;cursor:pointer}
+.grid figure > div{background:var(--stage);border-radius:10px;padding:6px}
+.grid svg{display:block;width:100%;height:auto}
+.grid figcaption{font-size:14px;font-weight:500}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.legend div{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:14.5px}
+.legend svg{width:40px;height:24px}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.rules div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:6px;align-content:start}
+.rules b{font-family:var(--display);font-weight:500;font-size:15px}
+.rules p{font-size:14.5px;color:var(--muted)}
+section{display:grid;gap:14px}
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <span class="eyebrow">Стайлгайд анимаций · «Первый год»</span>
+    <h1>Малыш в анимациях</h1>
+    <p class="lead">Схема вместо иллюстрации: малыш без лица, только тело и суставы. Цвет показывает, что делаем, пунктир — куда двигается. Двенадцать упражнений в одном стиле: гимнастика, время на животе, массаж и первая помощь.</p>
+  </header>
+
+  <section aria-label="Живая сцена">
+    <div class="stage" id="stage"></div>
+    <div class="caption"><h2 id="m-title">Велосипед</h2><span class="mono" id="m-meta"></span></div>
+    <div class="controls">
+      <div class="group" role="group" aria-label="Упражнение" id="chips"><span>Упражнение</span></div>
+      <div class="group" role="group" aria-label="Скорость"><span>Скорость</span>
+        <button class="chip" data-speed="0.5" aria-pressed="false">0,5×</button>
+        <button class="chip" data-speed="1" aria-pressed="true">1×</button>
+      </div>
+      <div class="group"><button class="chip" id="play" aria-pressed="false">Пауза</button><button class="chip" id="guide" aria-pressed="true">Траектория</button></div>
+    </div>
+  </section>
+
+  <section>
+    <div style="display:grid;gap:6px"><span class="eyebrow">Одна система</span><h2>Все упражнения в одном стиле</h2></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section>
+    <div style="display:grid;gap:6px"><span class="eyebrow">Легенда</span><h2>Что значит цвет</h2></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section>
+    <div style="display:grid;gap:6px"><span class="eyebrow">Правила</span><h2>Чтобы схемы были одной семьёй</h2></div>
+    <div class="rules">
+      <div><b>Без лица и деталей</b><p>Голова — круг, тело — капсула, конечности — сегменты. Смотрим на движение, а не на персонажа.</p></div>
+      <div><b>Один акцент</b><p>Розовым подсвечено только то, что двигается. Дальняя рука или нога светлее ближней.</p></div>
+      <div><b>Реальный темп</b><p>Велосипед — оборот за 2,2 с. Колени к животу — подъём 1,7 с, удержание 2 с, вниз 1,7 с. Анимация задаёт темп.</p></div>
+      <div><b>Траектория</b><p>Пунктир показывает путь стопы или колена за цикл, стрелка — направление прямо сейчас.</p></div>
+    </div>
+  </section>
+</div>
+
+<script>
+/*PICT*/
+/*END PICT*/
+
+const stage = document.getElementById("stage");
+let motion = "bike", speed = 1, showGuide = true;
+let playing = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+let t = 0, last = performance.now();
+
+function draw(){
+  const M = PICT[motion];
+  stage.innerHTML = pictSvg(pictScene(M.pose(t), showGuide ? {guide:M, t} : {}));
+}
+document.getElementById("chips").insertAdjacentHTML("beforeend", PICT_ORDER.map(k => `<button class="chip" data-m="${k}" aria-pressed="false">${PICT[k].title}</button>`).join(""));
+function drawGrid(time){
+  document.getElementById("grid").innerHTML = PICT_ORDER.map(k => [k, PICT[k]]).map(([k, M]) =>
+    `<figure data-m="${k}"><div>${pictSvg(pictScene(M.pose(time % M.period), {guide:M, t:time % M.period}))}</div><figcaption>${M.title}</figcaption></figure>`).join("");
+}
+function frame(now){
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (playing) { t += dt * speed; draw(); drawGrid(t); }
+  requestAnimationFrame(frame);
+}
+function setMotion(m){
+  motion = m; t = 0;
+  document.getElementById("m-title").textContent = PICT[m].title;
+  document.getElementById("m-meta").textContent = PICT[m].meta;
+  document.querySelectorAll(".chip[data-m]").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === m));
+  draw();
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("button, figure[data-m]"); if (!b) return;
+  if (b.dataset.m) { setMotion(b.dataset.m); return window.scrollTo({top:0, behavior:"smooth"}); }
+  if (b.dataset.speed) { speed = Number(b.dataset.speed); document.querySelectorAll("[data-speed]").forEach(x => x.setAttribute("aria-pressed", x === b)); return; }
+  if (b.id === "play") { playing = !playing; b.textContent = playing ? "Пауза" : "Играть"; b.setAttribute("aria-pressed", !playing); last = performance.now(); return; }
+  if (b.id === "guide") { showGuide = !showGuide; b.setAttribute("aria-pressed", showGuide); return draw(); }
+});
+const sw = (c, extra = "") => `<svg viewBox="0 0 40 24" class="pg"><line x1="6" y1="12" x2="34" y2="12" stroke="${c}" stroke-width="12" stroke-linecap="round" ${extra}/></svg>`;
+document.getElementById("legend").innerHTML = [
+  [sw("var(--pg-active)"), "Двигается: это и делаем"],
+  [sw("var(--pg-body)"), "Тело малыша в покое"],
+  [sw("var(--pg-adult)"), "Руки взрослого: где держать"],
+  [`<svg viewBox="0 0 40 24" class="pg"><line x1="4" y1="12" x2="36" y2="12" stroke="var(--pg-guide)" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/></svg>`, "Путь стопы или колена"],
+].map(([s, txt]) => `<div>${s}<span>${txt}</span></div>`).join("");
+if (!playing) { const p = document.getElementById("play"); p.textContent = "Играть"; p.setAttribute("aria-pressed", "true"); }
+setMotion("bike"); drawGrid(0.6);
+requestAnimationFrame(frame);
+</script>

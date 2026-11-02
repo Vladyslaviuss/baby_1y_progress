@@ -1,0 +1,27 @@
+{
+  "name": "rita-bot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build:artifact": "node scripts/build-artifact.mjs",
+    "render": "node scripts/render-cards.mjs",
+    "video": "node scripts/render-anim-video.mjs",
+    "test:e2e": "node tests/e2e-feed-sleep.mjs"
+  },
+  "dependencies": {
+    "@fontsource/golos-text": "^5.3.0",
+    "@fontsource/unbounded": "^5.3.0"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "acorn": "^8.19.0",
+    "acorn-walk": "^8.3.5",
+    "playwright-core": "^1.58.2",
+    "satori": "^0.60.0",
+    "satori-html": "^0.3.2",
+    "sharp": "^0.35.5",
+    "wrangler": "^4.151.0"
+  }
+}
