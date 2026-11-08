@@ -1,4 +1,4 @@
-import { W, Q, QT, QH, QA, PHASES, GEAR, GH, GCAT, GEAR_SKIP, isBase, NOTICES, noticeSeason, climateVerdict, orderWeek, gearForWeek, inSeason, RCAT, RH, routineForWeek, routineFor, remindersFor, routineSpan, RWHY, earlyOk, gearStage, weekStartDate, pickTip, weekEndDate, animsForRoutine,
+import { W, Q, QT, QH, QA, PHASES, GEAR, GH, GCAT, GEAR_SKIP, isBase, NOTICES, noticeSeason, climateVerdict, orderWeek, gearForWeek, inSeason, RCAT, RH, RSRC, routineForWeek, routineFor, remindersFor, routineSpan, RWHY, earlyOk, gearStage, weekStartDate, pickTip, weekEndDate, animsForRoutine,
          flagsFor, FLAGS_ALWAYS, urgentFor, ageOf, plural, ageLabel, MONTHLY, monthWord, SECTION_HINTS,
          COLORS, colorHex, dative, genitive, FIRST_AID, EMERGENCY,
          VACCINES, VACCINES_LATER, VSTATUS, vaccinePlan, vaccineDue, vaccineKind, vaccineDate, FA_ANIMS , ROUTINE, Q as QLIST, whoWeight, weightPercentile, Z, SPURTS, SPURT_SIGNS, SPURT_DO, SPURT_DOCTOR,
@@ -206,9 +206,11 @@ const infoBtn = (key, label="Зачем это") =>
   `<button type="button" class="info" data-hint="${key}" aria-expanded="${openHints.has(key)}" aria-label="${label}" title="${label}">${label==="Как делать"?"▶":"?"}</button>`;
 const hintBox = (key, text) => openHints.has(key) ? `<div class="hint">${esc(text)}</div>` : "";
 // Строка с отметкой. ids — по одной на ребёнка: [{id, kid}] или одна отметка на семью [{id}].
-function checkRow(ids, inner, how, hint, anims=[]){
+// Источники к подсказке рутины: «Источники: who.int, aap.org» ссылками
+const srcLine = list => list?.length ? `<p class="vi-src">Источники: ${list.map(u => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(host(u))}</a>`).join(", ")}</p>` : "";
+function checkRow(ids, inner, how, hint, anims=[], srcs){
   const key = "h:" + ids[0].id;
-  const hintFull = hint || anims.length ? `${hint?`<p>${esc(hint)}</p>`:""}${anims.map(animHTML).join("")}` : "";
+  const hintFull = hint || anims.length ? `${hint?`<p>${esc(hint)}</p>`:""}${srcLine(srcs)}${anims.map(animHTML).join("")}` : "";
   const allOn = ids.every(x => isOn(x.id));
   const tail = `${hintFull ? infoBtn(key, anims.length ? "Как делать" : "Зачем это") : ""}${hintFull && openHints.has(key) ? `<div class="hint">${hintFull}</div>` : ""}`;
   if (ids.length === 1) {
@@ -1540,7 +1542,7 @@ function routineBlock(g){
     return `<div class="group"><span class="eyebrow">${RCAT[cat]}</span>
       ${items.map(r => { const how = `${r.every ? `<span class="rfreq">${EVERY(r.every)}</span> ` : ""}${esc(r.how)}`;
         return fut || wait ? `<div class="row ro"><span class="ro-dot" aria-hidden="true"></span><div><span class="t">${esc(r.x)}</span><span class="how">${how}</span></div></div>`
-        : checkRow(kidIds(g, `d:${day}:${r.id}`), esc(r.x), how, RH[r.id], animsForRoutine(r.id, wk))
+        : checkRow(kidIds(g, `d:${day}:${r.id}`), esc(r.x), how, RH[r.id], animsForRoutine(r.id, wk), RSRC[r.id])
           + (r.id === "roll" && isT ? `<div class="rt-skill"><button type="button" class="link" data-rolled>Уже переворачивается сама — убрать</button></div>` : ""); }).join("")}</div>`;
   }).join("");
   return `<div class="panel" id="routine">
@@ -1555,7 +1557,7 @@ function routineBlock(g){
 function remindBlock(g, day){
   const list = remindersFor(g.date, day); if (!list.length) return "";
   return `<div class="remind"><div class="rm-head"><span class="eyebrow">Помнить весь день</span><small>отмечать не нужно</small></div>
-    ${list.map(r => `<div class="rm"><i aria-hidden="true">${r.ic}</i><div><b>${esc(r.x)}</b><ul>${r.pts.map(p => `<li>${esc(p)}</li>`).join("")}</ul>${RH[r.id] ? `<p class="rm-why"><span>Зачем:</span> ${esc(RH[r.id])}</p>` : ""}</div></div>`).join("")}</div>`;
+    ${list.map(r => `<div class="rm"><i aria-hidden="true">${r.ic}</i><div><b>${esc(r.x)}</b><ul>${r.pts.map(p => `<li>${esc(p)}</li>`).join("")}</ul>${RH[r.id] ? `<p class="rm-why"><span>Зачем:</span> ${esc(RH[r.id])}</p>` : ""}${srcLine(RSRC[r.id])}</div></div>`).join("")}</div>`;
 }
 
 // Полноэкранный календарь: месяцы от рождения до текущего (+ следующий), кольца по дням, шторка дня
