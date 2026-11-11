@@ -38,6 +38,13 @@ export function localize(l, body){
   return out;
 }
 
+// Одна строка под получателя (для текстов внутри HTML-виджета: localize переводит только text/caption/кнопки)
+export function trFor(l, s){
+  if (!s || (l.lang === "ru" && !l.boy)) return s;
+  setLang(l.lang === "ru" ? "ru" : "uk", UK); setBoy(l.boy ? BOY : null);
+  try { return tr(s, l.names); } finally { setLang("ru"); setBoy(null); }
+}
+
 export async function tg(env, method, body){
   const uid = body._uid ?? body.chat_id;
   if (body._uid !== undefined) { body = {...body}; delete body._uid; }

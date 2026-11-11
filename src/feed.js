@@ -1,7 +1,9 @@
 // Кормления: старт/стоп/пауза/смена груди, запись задним числом, сообщение-таймер в боте.
 // Пауза не создаёт новую запись: время на паузе копится в pause_ms и не входит в длительность.
-// Сообщение бота редактируется раз в минуту (feedTick) — Telegram не умеет живой таймер в сообщении.
-import { tg } from "./tg.js";
+// Обычное сообщение бота редактируется раз в минуту (feedTick). Кому включены виджеты (widgets.js) — вместо него HTML-виджет:
+// секунды он считает сам, кнопки внутри приходят как widget_query (onFeedWidget), бот меняет только его состояние (msg_w=1).
+import { tg, langOf, trFor } from "./tg.js";
+import { widgetsOn, feedWidgetHtml, feedState } from "./widgets.js";
 
 const TZ = "Europe/Kyiv";
 const SIDE = {L:"левая грудь", R:"правая грудь", B:"бутылочка"};
@@ -31,12 +33,19 @@ const activeKeyboard = (env, f) => ({inline_keyboard:[
   ...(f.side !== "B" ? [[{text:"🔁 Сменить грудь", callback_data:`feedswitch:${f.id}`}]] : []),
   [{text:"Открыть приложение", web_app:{url:`${env.APP_URL.replace(/\/$/, "")}/?tab=feed`}}]]});
 
+const appKb = env => ({inline_keyboard:[[{text:"Открыть приложение", web_app:{url:`${env.APP_URL.replace(/\/$/, "")}/?tab=feed`}}]]});
+// виджет: секунды считает сам, бот пишет только состояние (без «изменено» и без уведомления)
+const widgetData = (env, f) => tg(env, "editMessageWidgetData", {chat_id:f.chat_id, message_id:f.msg_id, chat_data:JSON.stringify(feedState(f, hm))});
+
 // закончили на паузе — кормление кончилось в момент паузы
 async function finish(env, f, now){
   const end = f.paused_at || now;
   await env.DB.prepare("UPDATE feedings SET end_at=?, paused_at=NULL WHERE id=? AND end_at IS NULL").bind(end, f.id).run();
   const done = {...f, end_at: end, paused_at: null};
-  if (f.msg_id) await tg(env, "editMessageText", {chat_id:f.chat_id, message_id:f.msg_id, text:doneText(done, await child(env, f.family_id, f.child_id)), parse_mode:"HTML"});
+  if (f.msg_id && f.msg_w) {
+    await widgetData(env, done);
+    await tg(env, "editMessageCaption", {chat_id:f.chat_id, message_id:f.msg_id, caption:doneText(done, await child(env, f.family_id, f.child_id)), parse_mode:"HTML", reply_markup:appKb(env)});
+  } else if (f.msg_id) await tg(env, "editMessageText", {chat_id:f.chat_id, message_id:f.msg_id, text:doneText(done, await child(env, f.family_id, f.child_id)), parse_mode:"HTML"});
   return done;
 }
 async function start(env, fid, kidId, side, uid, now){
@@ -47,11 +56,22 @@ async function setPause(env, f, on, now){
   if (on) await env.DB.prepare("UPDATE feedings SET paused_at=? WHERE id=? AND end_at IS NULL AND paused_at IS NULL").bind(now, f.id).run();
   else await env.DB.prepare("UPDATE feedings SET pause_ms=pause_ms+(?-paused_at), paused_at=NULL WHERE id=? AND end_at IS NULL AND paused_at IS NOT NULL").bind(now, f.id).run();
   const n = await feed(env, f.family_id, f.id);
-  if (n?.msg_id) await tg(env, "editMessageText", {chat_id:n.chat_id, message_id:n.msg_id, text:activeText(n, await child(env, n.family_id, n.child_id), now), parse_mode:"HTML", reply_markup:activeKeyboard(env, n)});
+  if (n?.msg_id && n.msg_w) await widgetData(env, n);
+  else if (n?.msg_id) await tg(env, "editMessageText", {chat_id:n.chat_id, message_id:n.msg_id, text:activeText(n, await child(env, n.family_id, n.child_id), now), parse_mode:"HTML", reply_markup:activeKeyboard(env, n)});
   return n;
 }
 async function sendActive(env, f, chatId){
   const kid = await child(env, f.family_id, f.child_id);
+  if (widgetsOn(env, chatId)) {
+    const w = await tg(env, "sendWidget", {chat_id:chatId, html:await feedWidgetHtml(env, chatId, f, nameOf(kid)), chat_data:JSON.stringify(feedState(f, hm)),
+      caption:`🍼 <b>Кормление идёт</b> · ${SIDE[f.side]}
+${nameOf(kid)} · начало ${hm(f.start_at)}`, parse_mode:"HTML", allow_queries:true, reply_markup:appKb(env)});
+    if (w.ok && w.result?.message_id) {
+      await env.DB.prepare("UPDATE feedings SET chat_id=?, msg_id=?, msg_w=1 WHERE id=?").bind(chatId, w.result.message_id, f.id).run();
+      return;
+    }
+    console.error("feed widget: не ушёл, шлю обычное сообщение —", w.description);
+  }
   const m = await tg(env, "sendMessage", {chat_id:chatId, text:activeText(f, kid, Date.now()), parse_mode:"HTML", reply_markup:activeKeyboard(env, f)});
   if (m.ok) await env.DB.prepare("UPDATE feedings SET chat_id=?, msg_id=? WHERE id=?").bind(chatId, m.result.message_id, f.id).run();
 }
@@ -164,7 +184,36 @@ export async function feedTick(env){
       await tg(env, "sendMessage", {chat_id:f.chat_id, text:`Похоже, кормление ${hm(f.start_at)} забыли остановить — записал ${dur(len(done))}. Поправить можно в приложении.`});
       continue;
     }
-    if (f.paused_at) continue;                         // на паузе цифры стоят — сообщение не трогаем
+    if (f.paused_at || f.msg_w) continue;              // на паузе цифры стоят; виджет считает время сам
     await tg(env, "editMessageText", {chat_id:f.chat_id, message_id:f.msg_id, text:activeText(f, kid, now), parse_mode:"HTML", reply_markup:activeKeyboard(env, f)});
   }
+}
+
+// ---------- кнопки внутри виджета-таймера (widget_query) ----------
+// f:t — фоновый запрос виджета при показе: серверное время для поправки часов телефона.
+// Ответ — новое состояние JSON (виджет перерисуется сразу, не дожидаясь editMessageWidgetData) или {err}.
+export async function onFeedWidget(env, q){
+  const [kind, act] = String(q.data || "").split(":");
+  if (kind !== "f") return false;
+  const l = await langOf(env, q.from.id);
+  const reply = d => tg(env, "answerWidgetQuery", {widget_query_id:q.id, data:JSON.stringify(d.err ? {err:trFor(l, d.err)} : d)});
+  if (act === "t") { await reply({n:Date.now()}); return true; }
+  const me = await env.DB.prepare("SELECT * FROM members WHERE user_id=?").bind(q.from.id).first();
+  const f = me && q.chat && await env.DB.prepare("SELECT * FROM feedings WHERE chat_id=? AND msg_id=? AND family_id=?").bind(q.chat.id, q.message_id, me.family_id).first();
+  if (!f) { await reply({err:"Кормление не найдено"}); return true; }
+  if (f.end_at) { await reply(feedState(f, hm)); return true; }
+  const now = Date.now();
+  if (act === "s") {
+    const done = await finish(env, f, now);
+    await reply(feedState(done, hm));
+  } else if (act === "p" || act === "r") {
+    const n = (!!f.paused_at === (act === "p")) ? f : await setPause(env, f, act === "p", now);
+    await reply(feedState(n, hm));
+  } else if (act === "w" && f.side !== "B") {
+    const done = await finish(env, f, now);
+    await reply(feedState(done, hm));
+    const n = await start(env, me.family_id, f.child_id, f.side === "L" ? "R" : "L", q.from.id, now);
+    await sendActive(env, n, q.from.id);
+  } else await reply({err:"Не понял кнопку"});
+  return true;
 }

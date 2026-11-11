@@ -36,6 +36,7 @@ if (!cols("families").includes("modules")) sqlite.exec("ALTER TABLE families ADD
 if (!cols("families").includes("routine")) sqlite.exec("ALTER TABLE families ADD COLUMN routine TEXT");
 if (!cols("feedings").includes("paused_at")) sqlite.exec("ALTER TABLE feedings ADD COLUMN paused_at INTEGER");
 if (!cols("feedings").includes("pause_ms")) sqlite.exec("ALTER TABLE feedings ADD COLUMN pause_ms INTEGER NOT NULL DEFAULT 0");
+if (!cols("feedings").includes("msg_w")) sqlite.exec("ALTER TABLE feedings ADD COLUMN msg_w INTEGER");
 if (!cols("sleeps").includes("msg_id")) { sqlite.exec("ALTER TABLE sleeps ADD COLUMN chat_id INTEGER"); sqlite.exec("ALTER TABLE sleeps ADD COLUMN msg_id INTEGER"); }
 if (!cols("feedback").includes("liked")) { sqlite.exec("ALTER TABLE feedback ADD COLUMN liked INTEGER NOT NULL DEFAULT 0"); sqlite.exec("ALTER TABLE feedback ADD COLUMN reply TEXT"); sqlite.exec("ALTER TABLE feedback ADD COLUMN reply_at INTEGER"); }
 if (!cols("members").includes("role")) sqlite.exec("ALTER TABLE members ADD COLUMN role TEXT");
@@ -77,7 +78,7 @@ const ASSETS = {
   },
 };
 
-const env = {DB, ASSETS, BOT_TOKEN: process.env.BOT_TOKEN, WEBHOOK_SECRET: process.env.WEBHOOK_SECRET, APP_URL: process.env.APP_URL, TG_API: process.env.TG_API, GATE_CHANNEL: process.env.GATE_CHANNEL, ONBOARD_VIDEO_URL: process.env.ONBOARD_VIDEO_URL, ADMIN_IDS: process.env.ADMIN_IDS || "", DEV: process.env.DEV === "1" ? "1" : "0"};
+const env = {DB, ASSETS, BOT_TOKEN: process.env.BOT_TOKEN, WEBHOOK_SECRET: process.env.WEBHOOK_SECRET, APP_URL: process.env.APP_URL, TG_API: process.env.TG_API, GATE_CHANNEL: process.env.GATE_CHANNEL, ONBOARD_VIDEO_URL: process.env.ONBOARD_VIDEO_URL, ADMIN_IDS: process.env.ADMIN_IDS || "", WIDGET_USERS: process.env.WIDGET_USERS || "", DEV: process.env.DEV === "1" ? "1" : "0"};
 const ctx = {waitUntil: p => p.catch(e => console.error(e)), passThroughOnException(){}};
 
 // ---------- живые обновления (Server-Sent Events) ----------
@@ -144,7 +145,9 @@ createServer(async (req, res) => {
         if (cq?.data?.startsWith("gear:")) { const fid = familyOf(cq.from.id), [, v, gid] = cq.data.split(":"); if (fid) broadcast(fid, {by: cq.from.id, path: "/api/check", id: `o:${gid}`, val: Number(v)}, null); }
         if (cq?.data?.startsWith("vac:")) { const fid = familyOf(cq.from.id); if (fid) broadcast(fid, {by: cq.from.id, path: "/api/vaccine", id: null, val: null}, null); }
         if (cq?.data?.startsWith("sleep")) { const fid = familyOf(cq.from.id); if (fid) broadcast(fid, {by: cq.from.id, path: "/api/sleep/bot", id: null, val: null}, null); }
-        if (cq?.data?.startsWith("feed")) { const fid = familyOf(cq.from.id); if (fid) broadcast(fid, {by: cq.from.id, path: "/api/feed/bot", id: null, val: null}, null); } } catch {}
+        if (cq?.data?.startsWith("feed")) { const fid = familyOf(cq.from.id); if (fid) broadcast(fid, {by: cq.from.id, path: "/api/feed/bot", id: null, val: null}, null); }
+        const wq = JSON.parse(body?.toString() || "{}").widget_query;   // кнопка в виджете-таймере (f:t — только время, ничего не меняет)
+        if (wq?.data?.startsWith("f:") && wq.data !== "f:t") { const fid = familyOf(wq.from.id); if (fid) broadcast(fid, {by: wq.from.id, path: "/api/feed/bot", id: null, val: null}, null); } } catch {}
     }
     // отозвали ссылки — сразу закрыть открытые по ним потоки
     if (url.pathname === "/api/web/revoke" && req.method === "POST" && r.ok)

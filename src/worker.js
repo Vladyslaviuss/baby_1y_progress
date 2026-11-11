@@ -4,7 +4,8 @@ import { CARDS_VERSION } from "./cards-version.js";
 import { tg, tgDocument, verifyInitData, forgetLang, langOf, localize } from "./tg.js";
 import { LANGS, DEFAULT_LANG } from "../public/i18n.js";
 const LANG_IDS = LANGS.map(l => l[0]);
-import { feedApi, onFeedCallback, feedTick, familyFeeds, feedAwayFor } from "./feed.js";
+import { feedApi, onFeedCallback, onFeedWidget, feedTick, familyFeeds, feedAwayFor } from "./feed.js";
+import { widgetsOn, monthWidgetHtml } from "./widgets.js";
 import { sleepApi, familySleeps, onSleepCallback, sleepTick, sleepAwayFor } from "./sleep.js";
 
 const TZ = "Europe/Kyiv";
@@ -235,6 +236,19 @@ function dailyText(groups, today, extra="", cfg=null, tip=null, list=false){
 // кто выключил утреннее сообщение (личная настройка, у каждого родителя своя)
 const MORNING_OFF = uid => `morning_off:${uid}`;
 async function morningOff(env, uid){ return !!(await env.DB.prepare("SELECT 1 FROM settings WHERE k=?").bind(MORNING_OFF(uid)).first()); }
+// Праздник месяца: кому включены виджеты — живая карточка (кольцо k из 12, конфетти), остальным — картинка, как раньше.
+async function sendMonth(env, uid, group, k){
+  const kb = appButton(env, "🎉 Открыть", `?celebrate=${k}&child=${group[0].id}`);
+  const title = `Ураа! ${joinNames(group, dative)} ${k} ${monthWord(k)}!`;
+  if (widgetsOn(env, uid)) {
+    const html = await monthWidgetHtml(env, uid, {title, k, items:MONTHLY[k], ofYear:`${k} из 12 месяцев первого года`,
+      usually:"Обычно к этому возрасту:", note:"У каждого ребёнка свои сроки — разница в несколько недель это норма."});
+    const r = await tg(env, "sendWidget", {chat_id:uid, html, caption:`🎉 <b>${title}</b>`, parse_mode:"HTML", reply_markup:kb});
+    if (r.ok) return r;
+    console.error("month widget: не ушёл, шлю картинку —", r.description);
+  }
+  return tg(env, "sendPhoto", {chat_id:uid, photo:monthUrl(env, k), caption:monthCaption(group, k), parse_mode:"HTML", reply_markup:kb});
+}
 function monthCaption(group, k){
   return `🎉 <b>Ураа! ${joinNames(group, dative)} ${k} ${monthWord(k)}!</b>\n\n${MONTHLY[k] ? `Обычно к этому возрасту: ${MONTHLY[k]}\n\n` : ""}У каждого ребёнка свои сроки — разница в несколько недель это норма.`;
 }
@@ -353,8 +367,7 @@ async function dailyForFamily(env, fam, today, force=false){
     if (a.days < 0) continue;
     const lastMonth = Math.min(...g.map(c => c.last_month)), lastWeek = Math.min(...g.map(c => c.last_week));
     if (a.months >= 1 && a.months <= 12 && a.months > lastMonth) {
-      await sendToFamily(env, fam.id, id => tg(env, "sendPhoto", {chat_id:id, photo:monthUrl(env, a.months), caption:monthCaption(g, a.months), parse_mode:"HTML",
-        reply_markup:appButton(env, "🎉 Открыть", `?celebrate=${a.months}&child=${g[0].id}`)}));
+      await sendToFamily(env, fam.id, id => sendMonth(env, id, g, a.months));
       sent.push(`month${a.months}`);
     }
     if (a.week <= 52 && a.week > lastWeek) {
@@ -631,6 +644,7 @@ const HELP = [
   "/today — рутина на сегодня",
   "/week — карточка текущей недели",
   "/card 12 — карточка любой недели, от 1 до 52",
+  "/month 5 — праздничная карточка месяца, от 1 до 12",
   "/flags — красные флаги по возрасту: когда к врачу",
   "/vaccines — прививки: что впереди и что пора сделать",
   "/export — копия всех данных файлом",
@@ -758,6 +772,11 @@ async function onMessage(env, msg){
     const fam = await env.DB.prepare("SELECT modules FROM families WHERE id=?").bind(me.family_id).first();
     const caption = g ? weekCaption(g, n, ageOf(g[0].birth, today), modulesOf(fam), await familyThings(env, me.family_id)) :`<b>Неделя ${n} · ${W[n-1].t}</b>`;
     return tg(env, "sendPhoto", {chat_id:uid, photo:cardUrl(env, n), caption, parse_mode:"HTML", reply_markup:appButton(env, "Открыть неделю", `?w=${n}`)});
+  }
+  if (cmd === "/month") {
+    const k = Number(args[0]) || (g ? ageOf(g[0].birth, today).months : 0);
+    if (!(k >= 1 && k <= 12)) return say("Номер месяца от 1 до 12: <code>/month 5</code>");
+    return sendMonth(env, uid, g || [{id:0, name:""}], k);
   }
   if (cmd === "/today") {
     if (!groups.length) return say("Рутина начнётся после даты рождения.", {reply_markup:appButton(env, "Открыть")});
@@ -1253,6 +1272,7 @@ const BOT_COMMANDS = [
   {command:"today", description:"Рутина на сегодня"},
   {command:"week", description:"Карточка текущей недели"},
   {command:"card", description:"Карточка недели N"},
+  {command:"month", description:"Праздничная карточка месяца N"},
   {command:"flags", description:"Красные флаги на сейчас"},
   {command:"vaccines", description:"Прививки: что впереди и что пора сделать"},
   {command:"export", description:"Копия всех данных файлом"},
@@ -1267,6 +1287,9 @@ export default {
         const upd = await req.json();
         if (upd.message) await onMessage(env, upd.message);
         if (upd.callback_query) await seen(env, upd.callback_query.from, "bot");
+        // кнопки внутри HTML-виджетов: ответить надо на каждый запрос за 15 с, иначе у виджета TIMEOUT
+        if (upd.widget_query && !(await onFeedWidget(env, upd.widget_query)))
+          await tg(env, "answerWidgetQuery", {widget_query_id:upd.widget_query.id, data:JSON.stringify({err:"Не понял кнопку"})});
         if (upd.callback_query?.data === "gatecheck") await onGateCallback(env, upd.callback_query);
         else if (upd.callback_query?.data?.startsWith("gear:")) await onGearCallback(env, upd.callback_query);
         else if (upd.callback_query?.data?.startsWith("fb:")) await onFeedbackCallback(env, upd.callback_query);
@@ -1283,7 +1306,7 @@ export default {
       if (path === "/setup") {
         if (url.searchParams.get("key") !== env.WEBHOOK_SECRET) return new Response("forbidden", {status:403});
         return json({
-          webhook: await tg(env, "setWebhook", {url:`${base(env)}/tg`, secret_token:env.WEBHOOK_SECRET, allowed_updates:["message","callback_query"]}),
+          webhook: await tg(env, "setWebhook", {url:`${base(env)}/tg`, secret_token:env.WEBHOOK_SECRET, allowed_updates:["message","callback_query","widget_query"]}),
           commands: await tg(env, "setMyCommands", {commands:BOT_COMMANDS}),
           // админам в их чате — те же команды плюс админка и отзывы
           adminCommands: await Promise.all(adminIds(env).map(id => tg(env, "setMyCommands", {scope:{type:"chat", chat_id:id}, commands:[

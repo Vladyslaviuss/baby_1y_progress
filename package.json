@@ -8,7 +8,8 @@
     "build:artifact": "node scripts/build-artifact.mjs",
     "render": "node scripts/render-cards.mjs",
     "video": "node scripts/render-anim-video.mjs",
-    "test:e2e": "node tests/e2e-feed-sleep.mjs"
+    "test:e2e": "node tests/e2e-feed-sleep.mjs",
+    "test:widgets": "node tests/e2e-widgets.mjs"
   },
   "dependencies": {
     "@fontsource/golos-text": "^5.3.0",

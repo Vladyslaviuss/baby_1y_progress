@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS feedings (
   by_user INTEGER,
   chat_id INTEGER,
   msg_id INTEGER,
+  msg_w INTEGER,                -- 1: сообщение-таймер — HTML-виджет (src/widgets.js)
   created INTEGER,
   paused_at INTEGER,
   pause_ms INTEGER NOT NULL DEFAULT 0
