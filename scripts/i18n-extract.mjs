@@ -8,7 +8,7 @@ import {simple} from "acorn-walk";
 import {segments} from "../public/i18n.js";
 
 const ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
-const JS = ["public/data.js", "public/app.js", "public/anim.js", "public/search.js", "public/tips.js", "public/guides.js", "public/guides-more.js", "public/faq.js", "public/vacc-info.js", "public/daytips.js", "public/pict.js", "src/worker.js", "src/feed.js", "src/sleep.js", "src/cards.js", "src/widgets.js", "public/changelog.js"];
+const JS = ["public/data.js", "public/app.js", "public/anim.js", "public/search.js", "public/tips.js", "public/guides.js", "public/guides-more.js", "public/faq.js", "public/vacc-info.js", "public/daytips.js", "public/pict.js", "src/worker.js", "src/feed.js", "src/sleep.js", "src/cards.js", "src/widgets.js", "public/changelog.js", "public/media.js"];
 const found = new Map();   // key -> [контекст]
 const add = (s, file, line, src) => { for (const k of segments(s)) { if (!found.has(k)) found.set(k, []); const c = found.get(k); if (c.length < 2) c.push(`${file}:${line}: ${src.trim().slice(0, 160)}`); } };
 

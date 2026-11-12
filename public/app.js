@@ -7,6 +7,7 @@ import { animHTML, startPict } from "./anim.js";
 import { LANGS, DEFAULT_LANG, setLang, setNames, setBoy, isBoy, watchDom, tr, getLang } from "./i18n.js";
 import { RHYMES, RHYME_LANGS, rhymeOfDay, ownRhyme } from "./rhymes.js";
 import { NEWS, unseenNews } from "./changelog.js";
+import { RMEDIA } from "./media.js";
 import { TIP_SECS, ARTICLES, articleOf, related } from "./tips.js";
 import { photoOf } from "./photos.js";
 import { pictScene, pictSvg, PICT } from "./pict.js";
@@ -224,11 +225,11 @@ const hintBox = (key, text) => openHints.has(key) ? `<div class="hint">${esc(tex
 // Строка с отметкой. ids — по одной на ребёнка: [{id, kid}] или одна отметка на семью [{id}].
 // Источники к подсказке рутины: «Источники: who.int, aap.org» ссылками
 const srcLine = list => list?.length ? `<p class="vi-src">Источники: ${list.map(u => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(host(u))}</a>`).join(", ")}</p>` : "";
-function checkRow(ids, inner, how, hint, anims=[], srcs){
+function checkRow(ids, inner, how, hint, anims=[], srcs, media=""){
   const key = "h:" + ids[0].id;
-  const hintFull = hint || anims.length ? `${hint?`<p>${esc(hint)}</p>`:""}${srcLine(srcs)}${anims.map(animHTML).join("")}` : "";
+  const hintFull = hint || anims.length || media ? `${hint?`<p>${esc(hint)}</p>`:""}${srcLine(srcs)}${anims.map(animHTML).join("")}${media}` : "";
   const allOn = ids.every(x => isOn(x.id));
-  const tail = `${hintFull ? infoBtn(key, anims.length ? "Как делать" : "Зачем это") : ""}${hintFull && openHints.has(key) ? `<div class="hint">${hintFull}</div>` : ""}`;
+  const tail = `${hintFull ? infoBtn(key, anims.length || media ? "Как делать" : "Зачем это") : ""}${hintFull && openHints.has(key) ? `<div class="hint">${hintFull}</div>` : ""}`;
   if (ids.length === 1) {
     const {id} = ids[0], c = S.checks[id], who = c && memberOf(c.by);
     return `<div class="row" ${who?`style="--who:${colorHex(who.color)}"`:""}>
@@ -1561,7 +1562,7 @@ function routineBlock(g){
     return `<div class="group"><span class="eyebrow">${RCAT[cat]}</span>
       ${items.map(r => { const how = `${r.every ? `<span class="rfreq">${EVERY(r.every)}</span> ` : ""}${esc(r.how)}`;
         return fut || wait ? `<div class="row ro"><span class="ro-dot" aria-hidden="true"></span><div><span class="t">${esc(r.x)}</span><span class="how">${how}</span></div></div>`
-        : checkRow(kidIds(g, `d:${day}:${r.id}`), esc(r.x), how, RH[r.id], animsForRoutine(r.id, wk), RSRC[r.id])
+        : checkRow(kidIds(g, `d:${day}:${r.id}`), esc(r.x), how, RH[r.id], animsForRoutine(r.id, wk), RSRC[r.id], routineMedia(r.id))
           + (r.id === "songs" && isT ? rhymeDay(g, day) : "")
           + (r.id === "roll" && isT ? `<div class="rt-skill"><button type="button" class="link" data-rolled>Уже переворачивается сама — убрать</button></div>` : ""); }).join("")}</div>`;
   }).join("");
@@ -1572,6 +1573,15 @@ function routineBlock(g){
     ${sections || `<p class="empty">Рутины на этот день нет.</p>`}
     ${remindBlock(g, day)}
   </div>`;
+}
+// Видео и фото к пункту рутины (public/media.js): сначала фото с автором и лицензией, потом ролики — на языке интерфейса первыми
+function routineMedia(id){
+  const m = RMEDIA[id]; if (!m) return "";
+  const mine = getLang() === "ru" ? ["ru", "uk"] : ["uk", "ru"];
+  const vids = [...m.v].sort((a, b) => mine.includes(b.lang) - mine.includes(a.lang));
+  return `<div class="rmedia">${(m.p || []).map(p => `<figure class="rphoto"><img src="${esc(p.f)}" alt="${esc(p.alt)}" loading="lazy">
+      <figcaption>${esc(p.alt)}. <a href="${esc(p.page)}" target="_blank" rel="noopener" translate="no">Фото: ${esc(p.by)}, ${esc(p.lic)}</a></figcaption></figure>`).join("")}
+    ${vids.map(v => `${artVideo(v)}<p class="rvid-w">${esc(v.w)}</p>`).join("")}</div>`;
 }
 // Потешки (public/rhymes.js): стих — на языке оригинала, без перевода словарём (translate="no"), подсказка — на языке интерфейса
 // Свои (family_rhymes) и лайки встроенных (отметка r:<id>, общая на семью) — подборка «Наши»

@@ -1390,3 +1390,13 @@ span.lw{cursor:default}
 .rh-tabs .ic-heart{fill:#d23f75;stroke:none;width:14px;height:14px;vertical-align:-2px;margin-right:4px}
 .rh-tabs button.on .ic-heart{fill:currentColor}
 @media (prefers-color-scheme:dark){.rh-like.on{color:#f08bb0}}
+
+/* видео и фото в подсказке рутины */
+.rmedia{margin-top:10px}
+.rphoto{margin:10px 0 12px}
+.rphoto img{display:block;width:100%;max-height:300px;object-fit:cover;border-radius:14px;background:var(--line)}
+.rphoto figcaption{margin-top:6px;font-size:12.5px;line-height:1.4;color:var(--muted)}
+.rphoto figcaption a{color:inherit}
+.rmedia .yt{margin:10px 0 4px}
+.rvid-w{margin:0 0 10px 4px;font-size:12.5px;line-height:1.4;color:var(--muted)}
+.rmedia .yt{grid-template-columns:1fr;gap:8px}
