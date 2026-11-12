@@ -158,15 +158,20 @@ export const RHYMES = [
 ];
 
 export const RHYME_LANGS = {ru:"Русские", uk:"Українські", en:"English"};
+// Своя потешка из базы (family_rhymes) → в общий вид; id «my-N», лайк не нужен — свои всегда в «Наших»
+export const ownRhyme = r => ({id:`my-${r.id}`, cid:r.id, own:true, lang:r.lang, ic:"✍️", t:r.title, x:r.text, how:r.how ? {ru:r.how, uk:r.how} : null, age:0, by:r.by_user});
 // Пул «потешки дня»: язык интерфейса + английский, по возрасту
 export function rhymePool(lang, months){
   const langs = lang === "ru" ? ["ru", "en"] : ["uk", "en"];
   const pool = RHYMES.filter(r => langs.includes(r.lang) && r.age <= months);
   return pool.length ? pool : RHYMES.filter(r => langs.includes(r.lang));
 }
-// Одна и та же весь день, завтра — следующая; shift — «другая»
-export function rhymeOfDay(day, lang, months, shift = 0){
-  const pool = rhymePool(lang, months); if (!pool.length) return null;
+// Одна и та же весь день, завтра — следующая; shift — «другая».
+// favs — свои и понравившиеся (на любом языке): идут через день, вперемешку с остальными
+export function rhymeOfDay(day, lang, months, shift = 0, favs = []){
+  const base = rhymePool(lang, months).filter(r => !favs.some(f => f.id === r.id));
+  const pool = !favs.length ? base : !base.length ? favs : base.flatMap((r, i) => [favs[i % favs.length], r]);
+  if (!pool.length) return null;
   const n = Math.floor(Date.parse(day + "T00:00:00Z") / 864e5);
   return pool[((n + shift) % pool.length + pool.length) % pool.length];
 }

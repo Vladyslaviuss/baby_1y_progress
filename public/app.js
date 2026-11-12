@@ -5,7 +5,7 @@ import { W, Q, QT, QH, QA, PHASES, GEAR, GH, GCAT, GEAR_SKIP, isBase, NOTICES, n
          LEAP_WEEKS, LEAP_PEAKS, leapOf, LEAP_KIND, LEAP_PEAK, LEAP_NOTE } from "./data.js";
 import { animHTML, startPict } from "./anim.js";
 import { LANGS, DEFAULT_LANG, setLang, setNames, setBoy, isBoy, watchDom, tr, getLang } from "./i18n.js";
-import { RHYMES, RHYME_LANGS, rhymeOfDay } from "./rhymes.js";
+import { RHYMES, RHYME_LANGS, rhymeOfDay, ownRhyme } from "./rhymes.js";
 import { TIP_SECS, ARTICLES, articleOf, related } from "./tips.js";
 import { photoOf } from "./photos.js";
 import { pictScene, pictSvg, PICT } from "./pict.js";
@@ -1157,6 +1157,9 @@ document.getElementById("sheet").addEventListener("click", async e => {
     return haptic();
   }
   if (d.nunread) { await setCheck(d.nunread, 0); return openNoticeArchive(); }
+  if (d.rhl) { t.parentElement.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b === t)); return haptic(); }
+  if (t.hasAttribute("data-rhsave")) return saveRhyme();
+  if (d.rhdel) return deleteRhyme(d.rhdel);
   if (d.vsave) {
     const id = Number(d.vsave), v = vOf(id), bd = document.getElementById("v-bd").value, bt = document.getElementById("v-bt").value;
     const status = sheet.querySelector("[data-vst][aria-pressed='true']")?.dataset.vst || v.status;
@@ -1556,19 +1559,68 @@ function routineBlock(g){
   </div>`;
 }
 // Потешки (public/rhymes.js): стих — на языке оригинала, без перевода словарём (translate="no"), подсказка — на языке интерфейса
-const rhHow = r => r.how[getLang() === "ru" ? "ru" : "uk"];
-const rhymeCard = r => `<div class="rhyme" translate="no"><p class="rh-x" lang="${r.lang}">${esc(r.x)}</p><p class="rh-how" lang="${getLang()}">👐 ${esc(rhHow(r))}</p></div>`;
+// Свои (family_rhymes) и лайки встроенных (отметка r:<id>, общая на семью) — подборка «Наши»
+const ownRhymes = () => (S.rhymes || []).map(ownRhyme);
+const allRhymes = () => [...ownRhymes(), ...RHYMES];
+const rhLiked = r => r.own || isOn(`r:${r.id}`);
+const ourRhymes = () => allRhymes().filter(rhLiked);
+const rhHow = r => r.how?.[getLang() === "ru" ? "ru" : "uk"] || "";
+const rhLang = l => l === "ru" || l === "uk" || l === "en" ? l : "";
+const rhLike = r => r.own ? `<button type="button" class="rh-edit" data-rhedit="${r.cid}">Изменить</button>`
+  : `<button type="button" class="rh-like ${rhLiked(r) ? "on" : ""}" data-rhlike="${r.id}" aria-pressed="${rhLiked(r)}" aria-label="${rhLiked(r) ? "Убрать из наших" : "В наши потешки"}">${rhLiked(r) ? "❤️" : "🤍"}</button>`;
+const rhymeCard = r => `<div class="rhyme"><p class="rh-x" translate="no" lang="${rhLang(r.lang)}">${esc(r.x)}</p>${rhHow(r) ? `<p class="rh-how" translate="no" lang="${getLang()}">👐 ${esc(rhHow(r))}</p>` : ""}</div>`;
 function rhymeDay(g, day){
-  const r = rhymeOfDay(day, getLang(), ageOf(g.date, day).months, S.rhShift || 0); if (!r) return "";
-  return `<div class="rh-day"><div class="rh-head"><span class="eyebrow">Потешка дня</span><b translate="no" lang="${r.lang}">${r.ic} ${esc(r.t)}</b></div>${rhymeCard(r)}
-    <div class="rh-act"><button type="button" class="link" data-rhnext>Другая</button><button type="button" class="link" data-rhall>Все потешки (${RHYMES.length})</button></div></div>`;
+  const r = rhymeOfDay(day, getLang(), ageOf(g.date, day).months, S.rhShift || 0, ourRhymes()); if (!r) return "";
+  return `<div class="rh-day"><div class="rh-head"><div><span class="eyebrow">Потешка дня</span><b translate="no" lang="${rhLang(r.lang)}">${r.ic} ${esc(r.t)}</b></div>${rhLike(r)}</div>${rhymeCard(r)}
+    <div class="rh-act"><button type="button" class="link" data-rhnext>Другая</button><button type="button" class="link" data-rhall>Все потешки (${allRhymes().length})</button></div></div>`;
 }
 function rhymesScreen(){
-  const f = S.rhLang || "all", list = RHYMES.filter(r => f === "all" || r.lang === f);
+  const ours = ourRhymes(), f = S.rhLang === "our" && !ours.length ? "all" : S.rhLang || "all";
+  const list = f === "our" ? ours : allRhymes().filter(r => f === "all" || r.lang === f);
+  const tabs = [["all", "Все"], ["our", `❤️ Наши · ${ours.length}`], ...Object.entries(RHYME_LANGS)];
   return `${demoBar()}<button type="button" class="link back" data-back>← Назад</button><div class="panel"><h2>Потешки</h2>
     <p class="muted">Стишки с касаниями: ручки, пальчики, ножки, животик. Одни и те же — по многу раз: малышу нравится узнавать и ждать конца.</p>
-    <div class="rh-tabs">${[["all", "Все"], ...Object.entries(RHYME_LANGS)].map(([k, v]) => `<button type="button" class="${f === k ? "on" : ""}" data-rhlang="${k}">${k === "all" ? v : `<span translate="no">${v}</span>`}</button>`).join("")}</div>
-    ${list.map(r => `<details class="rh-item"><summary><span translate="no" lang="${r.lang}">${r.ic} ${esc(r.t)}</span></summary>${rhymeCard(r)}</details>`).join("")}</div>`;
+    <p class="note-small">❤️ — в подборку «Наши»: она общая для обоих родителей, и потешка дня чаще берётся из неё.</p>
+    <button type="button" class="btn ghost" data-rhnew>+ Своя потешка</button>
+    <div class="rh-tabs">${tabs.map(([k, v]) => `<button type="button" class="${f === k ? "on" : ""}" data-rhlang="${k}">${RHYME_LANGS[k] ? `<span translate="no">${v}</span>` : v}</button>`).join("")}</div>
+    ${list.length ? list.map(r => `<details class="rh-item"${S.rhOpen === r.id ? " open" : ""}><summary><span translate="no" lang="${rhLang(r.lang)}">${r.ic} ${esc(r.t)}</span>${rhLiked(r) && !r.own ? `<i class="rh-heart" aria-label="в наших">❤️</i>` : ""}</summary>${rhymeCard(r)}<div class="rh-act">${rhLike(r)}</div></details>`).join("")
+      : `<p class="empty">Пока пусто: нажми 🤍 у понравившейся или добавь свою.</p>`}</div>`;
+}
+// Форма своей потешки: новая или правка
+function openRhymeForm(cid){
+  const r = cid ? (S.rhymes || []).find(x => x.id === Number(cid)) : null;
+  const langs = [["ru", "Русский"], ["uk", "Українська"], ["en", "English"], ["xx", "Другой"]], cur = r?.lang || (getLang() === "ru" ? "ru" : "uk");
+  openSheet(`<div class="sheet-head"><h2 class="plain">${r ? "Своя потешка" : "Новая потешка"}</h2><button type="button" class="sheet-x" data-sheet-close aria-label="Закрыть">×</button></div>
+    <div class="panel rh-form" data-rhid="${r?.id || ""}">
+      <div class="field"><label for="rh-t">Название</label><input id="rh-t" maxlength="60" value="${esc(r?.title || "")}" placeholder="Например: Бабушкина считалка"></div>
+      <div class="field"><label for="rh-x">Текст</label><textarea id="rh-x" maxlength="1500" rows="7" translate="no">${esc(r?.text || "")}</textarea></div>
+      <div class="field"><span class="flabel">Язык</span><div class="seg" role="radiogroup" aria-label="Язык">${langs.map(([k, v]) => `<button type="button" role="radio" data-rhl="${k}" aria-pressed="${k === cur}">${k === "xx" ? v : `<span translate="no">${v}</span>`}</button>`).join("")}</div></div>
+      <div class="field"><label for="rh-h">Что делать (необязательно)</label><textarea id="rh-h" maxlength="300" rows="2" placeholder="Например: хлопаем ладошками, на «бух» — обнимаем">${esc(r?.how || "")}</textarea></div>
+      <div class="kid-actions"><button type="button" class="btn" data-rhsave>Сохранить</button>${r ? `<button type="button" class="link" data-rhdel="${r.id}">Удалить</button>` : ""}</div>
+    </div>`);
+  setTimeout(() => document.getElementById(r ? "rh-x" : "rh-t")?.focus(), 60);
+}
+async function saveRhyme(){
+  const box = sheet.querySelector(".rh-form"); if (!box) return;
+  const id = Number(box.dataset.rhid) || null, title = document.getElementById("rh-t").value.trim(), text = document.getElementById("rh-x").value.trim();
+  const lang = sheet.querySelector('[data-rhl][aria-pressed="true"]')?.dataset.rhl || "xx", how = document.getElementById("rh-h").value.trim();
+  if (!title || !text) return toast("Нужны название и текст");
+  if (S.demo) {
+    const row = {id:id || Date.now(), title, text, how, lang, by_user:S.me, created:Date.now()};
+    S.rhymes = id ? (S.rhymes || []).map(x => x.id === id ? row : x) : [row, ...(S.rhymes || [])];
+  } else {
+    try { const r = await call("/api/rhyme/save", {id, title, text, how, lang}); if (!id) S.rhymes = [{id:r.id, title, text, how, lang, by_user:S.me, created:Date.now()}, ...(S.rhymes || [])];
+      else S.rhymes = S.rhymes.map(x => x.id === id ? {...x, title, text, how, lang} : x); }
+    catch (e) { return toast("Не сохранилось: " + e.message); }
+  }
+  closeSheet(); S.rhLang = "our"; S.rhOpen = `my-${id || S.rhymes[0].id}`; toast(id ? "Сохранено" : "Добавлено в «Наши»"); haptic();
+  if (S.tab !== "rhymes") go("rhymes"); else render();
+}
+async function deleteRhyme(id){
+  if (!(await ask("Удалить эту потешку?"))) return;
+  const prev = S.rhymes; S.rhymes = (S.rhymes || []).filter(x => x.id !== Number(id)); closeSheet(); render();
+  if (S.demo) return;
+  try { await call("/api/rhyme/delete", {id:Number(id)}); } catch (e) { S.rhymes = prev; render(); toast("Не удалилось: " + e.message); }
 }
 // «Помнить весь день» — без отметок, мягким цветом под рутиной
 function remindBlock(g, day){
@@ -2440,6 +2492,7 @@ function liveLabel(m){
   if (m.path === "/api/check" && typeof m.id === "string") {
     let name = "";
     if (/^[nb]:/.test(m.id)) return null;   // прочитанное уведомление — личное, второму родителю не показываем
+    if (m.id.startsWith("r:")) { const r = RHYMES.find(x => `r:${x.id}` === m.id); return m.val ? `❤️ потешка «${r?.t || ""}»` : `убрана из наших — «${r?.t || ""}»`; }
     const d = m.id.match(/:d:\d{4}-\d{2}-\d{2}:([a-z0-9]+)$/), q = m.id.match(/:q:(\d+):(\d)$/), o = m.id.match(/^o:([a-z0-9-]+)$/);
     if (d) name = ROUTINE.find(r => r.id === d[1])?.st[0][2] || S.routine?.own?.find(o => o.id === d[1])?.x || "рутина";
     else if (q) name = QLIST[Number(q[1]) - 1]?.[Number(q[2])]?.[1] || "задание";
@@ -2459,6 +2512,8 @@ function liveLabel(m){
   if (m.path.startsWith("/api/vacc")) return "обновлены прививки";
   if (m.path.startsWith("/api/measure")) return "новый замер веса";
   if (m.path === "/api/routine") return "изменена рутина";
+  if (m.path === "/api/rhyme/save") return "своя потешка";
+  if (m.path === "/api/rhyme/delete") return "удалена потешка";
   if (m.path.startsWith("/api/child")) return "обновлены данные ребёнка";
   return "есть изменения";
 }
@@ -2713,7 +2768,10 @@ view.addEventListener("click", async e => {
   if (d.artgo) { const a = articleOf(d.artgo); if (a.go.routine) { const kid = G()?.kids[0]; if (kid) openHints.add(`h:c${kid.id}:d:${S.today}:${a.go.routine}`); S.day = null; } go(a.go.tab); return a.go.routine && setTimeout(() => view.querySelector(".info[aria-expanded='true']")?.scrollIntoView({block:"center"}), 50); }
   if (t.hasAttribute("data-rhnext")) { S.rhShift = (S.rhShift || 0) + 1; haptic(); return render(); }
   if (t.hasAttribute("data-rhall")) { go("rhymes"); return window.scrollTo(0, 0); }
-  if (d.rhlang) { S.rhLang = d.rhlang; haptic(); return render(); }
+  if (d.rhlang) { S.rhLang = d.rhlang; S.rhOpen = null; haptic(); return render(); }
+  if (d.rhlike) { const on = !isOn(`r:${d.rhlike}`); S.rhOpen = d.rhlike; if (on) toast("В «Наших» ❤️"); return setCheck(`r:${d.rhlike}`, on ? 1 : 0); }
+  if (t.hasAttribute("data-rhnew")) return openRhymeForm();
+  if (d.rhedit) return openRhymeForm(d.rhedit);
   if (t.hasAttribute("data-back")) { const to = S.tab === "article" ? (S.artFrom || "tips") : S.tab === "rhymes" ? "today" : (S.weekFrom && S.weekFrom !== "week" ? S.weekFrom : "today"); go(to); if (to === "tips") { restoreTips(S.tipsBack); S.tipsBack = null; } return; }
   if (d.hint) { openHints.has(d.hint) ? openHints.delete(d.hint) : openHints.add(d.hint); haptic(); return render(); }
   if (d.wk) { S.week = Number(d.wk); render(); return window.scrollTo(0,0); }

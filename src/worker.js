@@ -48,7 +48,8 @@ const dtOrNull = s => DT.test(s||"") ? s : null;
 const cleanText = (s, n) => String(s||"").trim().replace(/[ \t]+/g, " ").slice(0, n);
 const escH = s => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 // c…:q задание, c…:d рутина, o:<вещь> (val 1 — есть, 2 — не нужно), n:<уведомление>:<сезон>:u<родитель> — прочитано (у каждого родителя своё)
-const CHECK_ID = /^(c\d{1,9}:(q:\d{1,2}:\d|d:\d{4}-\d{2}-\d{2}:[a-z0-9]+)|o:[a-z0-9][a-z0-9-]{0,39}|n:[a-z0-9][a-z0-9-]{0,39}:\d{4}:u\d{1,15}|b:[a-z0-9][a-z0-9:-]{0,40}:u\d{1,15})$/;
+const CHECK_ID = /^(c\d{1,9}:(q:\d{1,2}:\d|d:\d{4}-\d{2}-\d{2}:[a-z0-9]+)|o:[a-z0-9][a-z0-9-]{0,39}|n:[a-z0-9][a-z0-9-]{0,39}:\d{4}:u\d{1,15}|b:[a-z0-9][a-z0-9:-]{0,40}:u\d{1,15}|r:[a-z]{2}-[a-z0-9-]{1,40})$/;
+// r:<id потешки> — лайк встроенной потешки (общий на семью)
 // n: — прочитанное уведомление, b: — закладка статьи «Советов»: у каждого родителя свои
 const noticeUser = id => Number(id.match(/^[nb]:.*:u(\d+)$/)?.[1] || 0);
 const personal = id => id.startsWith("n:") || id.startsWith("b:");
@@ -58,6 +59,8 @@ const dayOfCheck = id => /^c\d+:d:(\d{4}-\d{2}-\d{2}):/.exec(id)?.[1] || null;
 const DAYS_LOADED = 14;   // отметки рутины целиком — за столько дней; раньше — только счётчики по дням
 const VSTAT = ["planned", "booked", "done", "skip"];
 const MUST = VACCINES.filter(v => v.kind === "must").map(v => v.code);
+const RHYME_LANG = ["ru", "uk", "en", "xx"], MAX_RHYMES = 200;
+const familyRhymes = (env, fid) => env.DB.prepare("SELECT id, title, text, how, lang, by_user, created FROM family_rhymes WHERE family_id=? ORDER BY created DESC").bind(fid).all().then(r => r.results);
 
 // Имя для текста: «Рита» или «Малыш», если имя ещё не выбрали.
 const nm = c => c.name || "Малыш";
@@ -175,17 +178,19 @@ const fmtD = iso => new Intl.DateTimeFormat("ru-RU", {day:"numeric", month:"long
 
 // ---------- экспорт ----------
 async function familyExport(env, fid){
-  const [fam, children, members, checks, vaccines, measures] = await Promise.all([
+  const [fam, children, members, checks, vaccines, measures, rhymes] = await Promise.all([
     env.DB.prepare("SELECT * FROM families WHERE id=?").bind(fid).first(), familyChildren(env, fid), familyMembers(env, fid),
     env.DB.prepare("SELECT id, val, by_user, at FROM checks WHERE family_id=? AND val>0 ORDER BY at").bind(fid).all().then(r => r.results), familyVaccines(env, fid),
-    env.DB.prepare("SELECT child_id, date, weight_g, length_cm, by_user FROM measurements WHERE family_id=? ORDER BY date").bind(fid).all().then(r => r.results)]);
+    env.DB.prepare("SELECT child_id, date, weight_g, length_cm, by_user FROM measurements WHERE family_id=? ORDER BY date").bind(fid).all().then(r => r.results),
+    familyRhymes(env, fid)]);
   return {app:"first-year", version:1, exportedAt:new Date().toISOString(),
     settings:{created:fam?.created ?? null, lastDaily:fam?.last_daily ?? null},
     children:children.map(({id,name,birth,due,sex}) => ({id,name,birth,due,sex})),
     measures:measures.map(m => ({child_id:m.child_id, date:m.date, weight_g:m.weight_g, length_cm:m.length_cm, by:m.by_user})),
     members:members.map(m => ({id:m.user_id, name:m.name, color:m.color})),
     checks:checks.map(x => ({id:x.id, by:x.by_user, at:x.at, ...(x.val === 2 ? {val:2} : {})})),
-    vaccines:vaccines.map(v => ({child_id:v.child_id, code:v.code, name:v.name, planned:v.planned, status:v.status, booked_at:v.booked_at, done_date:v.done_date, note:v.note, by:v.by_user, at:v.at}))};
+    vaccines:vaccines.map(v => ({child_id:v.child_id, code:v.code, name:v.name, planned:v.planned, status:v.status, booked_at:v.booked_at, done_date:v.done_date, note:v.note, by:v.by_user, at:v.at})),
+    rhymes:rhymes.map(r => ({title:r.title, text:r.text, how:r.how, lang:r.lang, by:r.by_user, at:r.created}))};
 }
 async function sendExport(env, uid, fid, today){
   const data = await familyExport(env, fid);
@@ -975,7 +980,8 @@ async function api(env, req, path){
     const measures = (await env.DB.prepare("SELECT id, child_id, date, weight_g, length_cm, by_user FROM measurements WHERE family_id=? ORDER BY date").bind(fid).all()).results;
     const feeds = await familyFeeds(env, fid, Date.now() - 31 * 864e5), sleeps = await familySleeps(env, fid, Date.now() - 31 * 864e5);
     const famRow = await env.DB.prepare("SELECT modules, routine FROM families WHERE id=?").bind(fid).first();
-    return json({today, now:Date.now(), children, members:await familyMembers(env, fid), me:user.id, owner:!!me.owner, role:me.role || null, modules:modulesOf(famRow), routine:routineCfg(famRow), tip:await familyTip(env, fid, children, today), lang:myLang, checks, since, routineDays, vaccines, measures, feeds, sleeps, prefs:{morning:!(await morningOff(env, user.id))}, ...(isAdmin(env, user.id) ? {admin:true} : {})});
+    const rhymes = await familyRhymes(env, fid);
+    return json({today, now:Date.now(), rhymes, children, members:await familyMembers(env, fid), me:user.id, owner:!!me.owner, role:me.role || null, modules:modulesOf(famRow), routine:routineCfg(famRow), tip:await familyTip(env, fid, children, today), lang:myLang, checks, since, routineDays, vaccines, measures, feeds, sleeps, prefs:{morning:!(await morningOff(env, user.id))}, ...(isAdmin(env, user.id) ? {admin:true} : {})});
   }
   if (path === "/api/day" && req.method === "GET") {        // отметки рутины за один старый день (календарь)
     const date = isoOrNull(new URL(req.url).searchParams.get("date")); if (!realDay(date)) return json({error:"bad date"}, 400);
@@ -997,6 +1003,24 @@ async function api(env, req, path){
     if (v === 2 && !id.startsWith("o:")) return json({error:"val 2 only for things"}, 400);   // «не нужно» — только у вещей
     await env.DB.prepare("INSERT INTO checks(family_id,id,val,by_user,at) VALUES(?,?,?,?,?) ON CONFLICT(family_id,id) DO UPDATE SET val=excluded.val, by_user=excluded.by_user, at=excluded.at")
       .bind(fid, id, v, user.id, Date.now()).run();
+    return json({ok:true});
+  }
+  if (path === "/api/rhyme/save" && req.method === "POST") {   // своя потешка: новая или правка
+    const title = cleanText(body.title, 60), text = String(body.text || "").replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, 1500);
+    const how = cleanText(body.how, 300) || null, lang = RHYME_LANG.includes(body.lang) ? body.lang : "xx";
+    if (!title || !text) return json({error:"Нужны название и текст"}, 400);
+    if (body.id) {
+      const r = await env.DB.prepare("UPDATE family_rhymes SET title=?, text=?, how=?, lang=? WHERE id=? AND family_id=?").bind(title, text, how, lang, Number(body.id), fid).run();
+      if (!r.meta.changes) return json({error:"not found"}, 404);
+      return json({ok:true, id:Number(body.id)});
+    }
+    const n = (await env.DB.prepare("SELECT COUNT(*) AS n FROM family_rhymes WHERE family_id=?").bind(fid).first()).n;
+    if (n >= MAX_RHYMES) return json({error:`Своих потешек — не больше ${MAX_RHYMES}`}, 400);
+    const r = await env.DB.prepare("INSERT INTO family_rhymes(family_id,title,text,how,lang,by_user,created) VALUES(?,?,?,?,?,?,?)").bind(fid, title, text, how, lang, user.id, Date.now()).run();
+    return json({ok:true, id:r.meta.last_row_id});
+  }
+  if (path === "/api/rhyme/delete" && req.method === "POST") {
+    await env.DB.prepare("DELETE FROM family_rhymes WHERE id=? AND family_id=?").bind(Number(body.id), fid).run();
     return json({ok:true});
   }
   if (path === "/api/me" && req.method === "POST") {
@@ -1150,7 +1174,12 @@ async function api(env, req, path){
         SELECT ?, ${["child","code","name","planned","status","booked_at","done_date","note","by","at"].map(col).join(", ")} FROM json_each(?) WHERE NOT EXISTS (
           SELECT 1 FROM vaccines v WHERE v.child_id=json_extract(value,'$.child') AND v.code IS NULL AND v.name=json_extract(value,'$.name')
           AND COALESCE(v.planned,'')=COALESCE(json_extract(value,'$.planned'),''))`).bind(fid, JSON.stringify(own))]);
-    return json({ok:true, children:map.size, checks:rc.meta.changes, vaccines:rv.meta.changes + ro.meta.changes});
+    const rh = (Array.isArray(d.rhymes) ? d.rhymes : []).slice(0, MAX_RHYMES).map(r => ({title:cleanText(r?.title, 60), text:String(r?.text || "").slice(0, 1500).trim(),
+      how:cleanText(r?.how, 300) || null, lang:RHYME_LANG.includes(r?.lang) ? r.lang : "xx", by:num(r?.by), at:num(r?.at) || Date.now()})).filter(r => r.title && r.text);
+    const rr = rh.length ? await env.DB.prepare(`INSERT INTO family_rhymes(family_id,title,text,how,lang,by_user,created)
+      SELECT ?, ${["title","text","how","lang","by","at"].map(col).join(", ")} FROM json_each(?) WHERE NOT EXISTS (
+        SELECT 1 FROM family_rhymes f WHERE f.family_id=? AND f.title=json_extract(value,'$.title') AND f.text=json_extract(value,'$.text'))`).bind(fid, JSON.stringify(rh), fid).run() : null;
+    return json({ok:true, children:map.size, checks:rc.meta.changes, vaccines:rv.meta.changes + ro.meta.changes, rhymes:rr?.meta.changes || 0});
   }
   if (path === "/api/routine" && req.method === "POST") {
     const cfg = cleanRoutineCfg(body);

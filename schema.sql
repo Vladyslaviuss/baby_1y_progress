@@ -38,6 +38,18 @@ CREATE TABLE IF NOT EXISTS checks (
   at INTEGER,
   PRIMARY KEY (family_id, id)
 );
+-- Свои потешки семьи (public/rhymes.js — встроенные). lang: ru | uk | en | xx (другой). Лайки встроенных — отметки r:<id> в checks.
+CREATE TABLE IF NOT EXISTS family_rhymes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  family_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  text TEXT NOT NULL,
+  how TEXT,
+  lang TEXT NOT NULL DEFAULT 'xx',
+  by_user INTEGER,
+  created INTEGER
+);
+CREATE INDEX IF NOT EXISTS family_rhymes_fam ON family_rhymes(family_id);
 CREATE TABLE IF NOT EXISTS invites (
   code TEXT PRIMARY KEY,
   family_id INTEGER NOT NULL,

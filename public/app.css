@@ -1360,3 +1360,15 @@ span.lw{cursor:default}
 .rh-item{border-top:1px solid var(--line);padding:10px 0}
 .rh-item summary{cursor:pointer;font-weight:600;list-style-position:outside}
 .rh-item .rhyme{padding:8px 0 2px}
+
+.rh-head{flex-direction:row;justify-content:space-between;align-items:flex-start;gap:10px}
+.rh-head>div{display:flex;flex-direction:column;gap:2px}
+.rh-like{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--card);font-size:19px;line-height:1;cursor:pointer}
+.rh-like.on{border-color:color-mix(in oklab,var(--accent,#d23f75) 45%,var(--line))}
+.rh-edit{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font:inherit;font-size:13.5px;cursor:pointer}
+.rh-item summary{display:flex;align-items:center;gap:8px}
+.rh-item summary span{flex:1}
+.rh-heart{font-style:normal;font-size:13px}
+.rh-item .rh-act{margin-top:2px}
+.rh-form .seg{flex-wrap:wrap}
+.flabel{font-size:13.5px;color:var(--muted)}
