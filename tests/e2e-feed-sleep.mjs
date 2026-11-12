@@ -19,7 +19,7 @@ const fake = http.createServer((req, res) => { let b = ""; req.on("data", c => b
 }); }).listen(8799);
 const DB = path.resolve(process.env.SHOTS_DB || "shots-sleep.db"); for (const s of ["", "-wal", "-shm"]) try { fs.unlinkSync(DB + s); } catch {}
 const srv = spawn(process.execPath, ["server.mjs"], {cwd:ROOT, stdio:["ignore", "ignore", "inherit"],
-  env:{...process.env, PORT:"8798", DB_PATH:DB, BOT_TOKEN:"x", WEBHOOK_SECRET:"s", APP_URL:"http://localhost:8798", TG_API:"http://localhost:8799/bot", GATE_CHANNEL:"", DEV:"1", FEED_TICK_MS:"600000", CLOSED_GRACE_MS:"1500", ADMIN_IDS:"9"}});
+  env:{...process.env, PORT:"8798", DB_PATH:DB, BOT_TOKEN:"x", WEBHOOK_SECRET:"s", APP_URL:"http://localhost:8798", TG_API:"http://localhost:8799/bot", GATE_CHANNEL:"", DEV:"1", FEED_TICK_MS:"600000", CLOSED_GRACE_MS:"1500", ADMIN_IDS:"9", WIDGET_USERS:"0"}});
 await new Promise(r => setTimeout(r, 1500));
 const U = "http://localhost:8798";
 const post = (p, body, uid = 1) => fetch(U + p, {method:"POST", headers:{"content-type":"application/json", "x-dev-user":String(uid), "x-dev-name":"Test"}, body:JSON.stringify(body)}).then(r => r.json());
@@ -83,7 +83,7 @@ ok(!r.ok || (await get("/api/state")).sleeps.some(s => s.id === sid), "чужа�
   ok(!sent.slice(n).some(x => x.m === "sendMessage"), "чужой away по сну — сообщения нет");
   await post("/api/sleep/away", {id:sid2});
   const m = sent.slice(n).find(x => x.m === "sendMessage");
-  ok(m && /Рита (спит|спить)/.test(m.text) && /(Уснула|Заснула) в/.test(m.text) && JSON.stringify(m.reply_markup).includes(`sleepwake:${sid2}`) && /(Проснулась|Прокинулася)/.test(JSON.stringify(m.reply_markup)), "сон в боте: «Рита спит», таймер и кнопка «Проснулась»");
+  ok(m && /Рита (спит|спить)/.test(m.text) && /(Уснула в|Заснула о)/.test(m.text) && JSON.stringify(m.reply_markup).includes(`sleepwake:${sid2}`) && /(Проснулась|Прокинулася)/.test(JSON.stringify(m.reply_markup)), "сон в боте: «Рита спит», таймер и кнопка «Проснулась»");
   n = sent.length; await post("/api/sleep/away", {id:sid2});
   ok(!sent.slice(n).some(x => x.m === "sendMessage"), "повторный away — второго сообщения нет");
   await tgPost({callback_query:{id:"5", from:{id:1, first_name:"Аня"}, data:`sleepwake:${sid2}`, message:{chat:{id:1}, message_id:77}}});

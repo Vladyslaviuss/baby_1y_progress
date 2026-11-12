@@ -37,6 +37,7 @@ if (!cols("families").includes("routine")) sqlite.exec("ALTER TABLE families ADD
 if (!cols("feedings").includes("paused_at")) sqlite.exec("ALTER TABLE feedings ADD COLUMN paused_at INTEGER");
 if (!cols("feedings").includes("pause_ms")) sqlite.exec("ALTER TABLE feedings ADD COLUMN pause_ms INTEGER NOT NULL DEFAULT 0");
 if (!cols("feedings").includes("msg_w")) sqlite.exec("ALTER TABLE feedings ADD COLUMN msg_w INTEGER");
+if (!cols("sleeps").includes("msg_w")) sqlite.exec("ALTER TABLE sleeps ADD COLUMN msg_w INTEGER");
 if (!cols("sleeps").includes("msg_id")) { sqlite.exec("ALTER TABLE sleeps ADD COLUMN chat_id INTEGER"); sqlite.exec("ALTER TABLE sleeps ADD COLUMN msg_id INTEGER"); }
 if (!cols("feedback").includes("liked")) { sqlite.exec("ALTER TABLE feedback ADD COLUMN liked INTEGER NOT NULL DEFAULT 0"); sqlite.exec("ALTER TABLE feedback ADD COLUMN reply TEXT"); sqlite.exec("ALTER TABLE feedback ADD COLUMN reply_at INTEGER"); }
 if (!cols("members").includes("role")) sqlite.exec("ALTER TABLE members ADD COLUMN role TEXT");
@@ -147,7 +148,8 @@ createServer(async (req, res) => {
         if (cq?.data?.startsWith("sleep")) { const fid = familyOf(cq.from.id); if (fid) broadcast(fid, {by: cq.from.id, path: "/api/sleep/bot", id: null, val: null}, null); }
         if (cq?.data?.startsWith("feed")) { const fid = familyOf(cq.from.id); if (fid) broadcast(fid, {by: cq.from.id, path: "/api/feed/bot", id: null, val: null}, null); }
         const wq = JSON.parse(body?.toString() || "{}").widget_query;   // кнопка в виджете-таймере (f:t — только время, ничего не меняет)
-        if (wq?.data?.startsWith("f:") && wq.data !== "f:t") { const fid = familyOf(wq.from.id); if (fid) broadcast(fid, {by: wq.from.id, path: "/api/feed/bot", id: null, val: null}, null); } } catch {}
+        if (wq?.data?.startsWith("f:") && wq.data !== "f:t") { const fid = familyOf(wq.from.id); if (fid) broadcast(fid, {by: wq.from.id, path: "/api/feed/bot", id: null, val: null}, null); }
+        if (wq?.data === "s:w") { const fid = familyOf(wq.from.id); if (fid) broadcast(fid, {by: wq.from.id, path: "/api/sleep/bot", id: null, val: null}, null); } } catch {}
     }
     // отозвали ссылки — сразу закрыть открытые по ним потоки
     if (url.pathname === "/api/web/revoke" && req.method === "POST" && r.ok)

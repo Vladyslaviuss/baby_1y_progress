@@ -1,7 +1,8 @@
 // Сон: старт/стоп, запись задним числом, удаление.
 // Свернули приложение, пока малыш спит, — бот присылает тому, кто отметил сон, сообщение-таймер с кнопкой «Проснулась»;
-// оно обновляется раз в минуту (sleepTick), как у кормления. Остальным в семье ничего не шлём — сон виден в приложении.
-import { tg } from "./tg.js";
+// оно обновляется раз в минуту (sleepTick), как у кормления. Кому включены виджеты — HTML-виджет (msg_w=1): секунды он считает сам. Остальным в семье ничего не шлём — сон виден в приложении.
+import { tg, langOf, trFor } from "./tg.js";
+import { widgetsOn, sleepWidgetHtml, sleepState } from "./widgets.js";
 
 const MAX_SLEEP = 16 * 3600e3;              // один сон дольше 16 часов — ошибка ввода
 const TZ = "Europe/Kyiv";
@@ -16,10 +17,26 @@ const activeKeyboard = (env, s, kid) => ({inline_keyboard:[[{text:`☀️ ${girl
 // сон закончился — сообщение-таймер превращается в итог
 async function closeMsg(env, s, end){
   if (!s.msg_id) return;
+  if (s.msg_w) {
+    const done = {...s, end_at:end};
+    await tg(env, "editMessageWidgetData", {chat_id:s.chat_id, message_id:s.msg_id, chat_data:JSON.stringify(sleepState(done, hm))});
+    await tg(env, "editMessageCaption", {chat_id:s.chat_id, message_id:s.msg_id, caption:doneText(done, await child(env, s.family_id, s.child_id)), parse_mode:"HTML", reply_markup:{inline_keyboard:[[appBtn(env)]]}});
+    return;
+  }
   await tg(env, "editMessageText", {chat_id:s.chat_id, message_id:s.msg_id, text:doneText({...s, end_at:end}, await child(env, s.family_id, s.child_id)), parse_mode:"HTML"});
 }
 async function sendActive(env, s, uid){
   const kid = await child(env, s.family_id, s.child_id);
+  if (widgetsOn(env, uid)) {
+    const w = await tg(env, "sendWidget", {chat_id:uid, html:await sleepWidgetHtml(env, uid, s, nameOf(kid), girl(kid)), chat_data:JSON.stringify(sleepState(s, hm)),
+      caption:`😴 <b>${nameOf(kid)} спит</b>
+${girl(kid) ? "Уснула" : "Уснул"} в ${hm(s.start_at)}`, parse_mode:"HTML", allow_queries:true, reply_markup:{inline_keyboard:[[appBtn(env)]]}});
+    if (w.ok && w.result?.message_id) {
+      await env.DB.prepare("UPDATE sleeps SET chat_id=?, msg_id=?, msg_w=1 WHERE id=?").bind(uid, w.result.message_id, s.id).run();
+      return;
+    }
+    console.error("sleep widget: не ушёл, шлю обычное сообщение —", w.description);
+  }
   const m = await tg(env, "sendMessage", {chat_id:uid, text:activeText(s, kid, Date.now()), parse_mode:"HTML", reply_markup:activeKeyboard(env, s, kid)});
   if (m.ok) await env.DB.prepare("UPDATE sleeps SET chat_id=?, msg_id=? WHERE id=?").bind(uid, m.result.message_id, s.id).run();
 }
@@ -108,7 +125,25 @@ export async function sleepTick(env){
       await tg(env, "sendMessage", {chat_id:s.chat_id, text:`Похоже, сон с ${hm(s.start_at)} забыли остановить — записал 16 ч. Поправить можно в приложении.`});
       continue;
     }
+    if (s.msg_w) continue;                             // виджет считает время сам
     const kid = await child(env, s.family_id, s.child_id);
     await tg(env, "editMessageText", {chat_id:s.chat_id, message_id:s.msg_id, text:activeText(s, kid, now), parse_mode:"HTML", reply_markup:activeKeyboard(env, s, kid)});
   }
+}
+
+// ---------- кнопка внутри виджета сна (widget_query) ----------
+// s:t — серверное время для поправки часов телефона; s:w — проснулась. Ответ — новое состояние или {err}.
+export async function onSleepWidget(env, q){
+  const [kind, act] = String(q.data || "").split(":");
+  if (kind !== "s") return false;
+  const l = await langOf(env, q.from.id);
+  const reply = d => tg(env, "answerWidgetQuery", {widget_query_id:q.id, data:JSON.stringify(d.err ? {err:trFor(l, d.err)} : d)});
+  if (act === "t") { await reply({n:Date.now()}); return true; }
+  const me = await env.DB.prepare("SELECT * FROM members WHERE user_id=?").bind(q.from.id).first();
+  const s = me && q.chat && await env.DB.prepare("SELECT * FROM sleeps WHERE chat_id=? AND msg_id=? AND family_id=?").bind(q.chat.id, q.message_id, me.family_id).first();
+  if (!s) { await reply({err:"Сон не найден"}); return true; }
+  if (act !== "w") { await reply({err:"Не понял кнопку"}); return true; }
+  if (!s.end_at) await finish(env, s, Math.min(Date.now(), s.start_at + MAX_SLEEP));
+  await reply(sleepState(await sleep(env, s.family_id, s.id), hm));
+  return true;
 }

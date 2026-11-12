@@ -106,7 +106,8 @@ CREATE TABLE IF NOT EXISTS sleeps (
   by_user INTEGER,
   created INTEGER,
   chat_id INTEGER,
-  msg_id INTEGER
+  msg_id INTEGER,
+  msg_w INTEGER                 -- 1: сообщение-таймер — HTML-виджет
 );
 CREATE INDEX IF NOT EXISTS sleeps_family ON sleeps(family_id, start_at);
 

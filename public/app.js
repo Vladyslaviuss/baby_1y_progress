@@ -4,7 +4,8 @@ import { W, Q, QT, QH, QA, PHASES, GEAR, GH, GCAT, GEAR_SKIP, isBase, NOTICES, n
          VACCINES, VACCINES_LATER, VSTATUS, vaccinePlan, vaccineDue, vaccineKind, vaccineDate, FA_ANIMS , ROUTINE, Q as QLIST, whoWeight, weightPercentile, Z, SPURTS, SPURT_SIGNS, SPURT_DO, SPURT_DOCTOR,
          LEAP_WEEKS, LEAP_PEAKS, leapOf, LEAP_KIND, LEAP_PEAK, LEAP_NOTE } from "./data.js";
 import { animHTML, startPict } from "./anim.js";
-import { LANGS, DEFAULT_LANG, setLang, setNames, setBoy, isBoy, watchDom, tr } from "./i18n.js";
+import { LANGS, DEFAULT_LANG, setLang, setNames, setBoy, isBoy, watchDom, tr, getLang } from "./i18n.js";
+import { RHYMES, RHYME_LANGS, rhymeOfDay } from "./rhymes.js";
 import { TIP_SECS, ARTICLES, articleOf, related } from "./tips.js";
 import { photoOf } from "./photos.js";
 import { pictScene, pictSvg, PICT } from "./pict.js";
@@ -1543,6 +1544,7 @@ function routineBlock(g){
       ${items.map(r => { const how = `${r.every ? `<span class="rfreq">${EVERY(r.every)}</span> ` : ""}${esc(r.how)}`;
         return fut || wait ? `<div class="row ro"><span class="ro-dot" aria-hidden="true"></span><div><span class="t">${esc(r.x)}</span><span class="how">${how}</span></div></div>`
         : checkRow(kidIds(g, `d:${day}:${r.id}`), esc(r.x), how, RH[r.id], animsForRoutine(r.id, wk), RSRC[r.id])
+          + (r.id === "songs" && isT ? rhymeDay(g, day) : "")
           + (r.id === "roll" && isT ? `<div class="rt-skill"><button type="button" class="link" data-rolled>Уже переворачивается сама — убрать</button></div>` : ""); }).join("")}</div>`;
   }).join("");
   return `<div class="panel" id="routine">
@@ -1552,6 +1554,21 @@ function routineBlock(g){
     ${sections || `<p class="empty">Рутины на этот день нет.</p>`}
     ${remindBlock(g, day)}
   </div>`;
+}
+// Потешки (public/rhymes.js): стих — на языке оригинала, без перевода словарём (translate="no"), подсказка — на языке интерфейса
+const rhHow = r => r.how[getLang() === "ru" ? "ru" : "uk"];
+const rhymeCard = r => `<div class="rhyme" translate="no"><p class="rh-x" lang="${r.lang}">${esc(r.x)}</p><p class="rh-how" lang="${getLang()}">👐 ${esc(rhHow(r))}</p></div>`;
+function rhymeDay(g, day){
+  const r = rhymeOfDay(day, getLang(), ageOf(g.date, day).months, S.rhShift || 0); if (!r) return "";
+  return `<div class="rh-day"><div class="rh-head"><span class="eyebrow">Потешка дня</span><b translate="no" lang="${r.lang}">${r.ic} ${esc(r.t)}</b></div>${rhymeCard(r)}
+    <div class="rh-act"><button type="button" class="link" data-rhnext>Другая</button><button type="button" class="link" data-rhall>Все потешки (${RHYMES.length})</button></div></div>`;
+}
+function rhymesScreen(){
+  const f = S.rhLang || "all", list = RHYMES.filter(r => f === "all" || r.lang === f);
+  return `${demoBar()}<button type="button" class="link back" data-back>← Назад</button><div class="panel"><h2>Потешки</h2>
+    <p class="muted">Стишки с касаниями: ручки, пальчики, ножки, животик. Одни и те же — по многу раз: малышу нравится узнавать и ждать конца.</p>
+    <div class="rh-tabs">${[["all", "Все"], ...Object.entries(RHYME_LANGS)].map(([k, v]) => `<button type="button" class="${f === k ? "on" : ""}" data-rhlang="${k}">${k === "all" ? v : `<span translate="no">${v}</span>`}</button>`).join("")}</div>
+    ${list.map(r => `<details class="rh-item"><summary><span translate="no" lang="${r.lang}">${r.ic} ${esc(r.t)}</span></summary>${rhymeCard(r)}</details>`).join("")}</div>`;
 }
 // «Помнить весь день» — без отметок, мягким цветом под рутиной
 function remindBlock(g, day){
@@ -2578,7 +2595,7 @@ function syncBoy(){
 }
 function render(){
   syncBoy();
-  const nav = S.tab === "week" ? (S.weekFrom === "tips" ? "tips" : "today") : S.tab === "article" ? "tips" : S.tab === "vaccines" ? "growth" : S.tab;
+  const nav = S.tab === "rhymes" ? "today" : S.tab === "week" ? (S.weekFrom === "tips" ? "tips" : "today") : S.tab === "article" ? "tips" : S.tab === "vaccines" ? "growth" : S.tab;
   document.getElementById("family-open").setAttribute("aria-current", S.tab === "family" || S.tab === "faq");
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === nav));
   const tg0 = !S.error && !S.onboarding && S.children?.length ? G() : null;
@@ -2614,7 +2631,7 @@ function render(){
   if (hide[S.tab] || (S.tab === "vaccines" && !mods.vaccines)) S.tab = S.tab === "vaccines" && mods.growth ? "growth" : "today";
   if (S.showInvite) { view.innerHTML = inviteScreen(); return; }
   const keepTips = S.tab === "tips" && view.querySelector(".tsec") ? {cars:tipsPos().cars} : null;   // живые обновления не сбрасывают карусели
-  view.innerHTML = {today:todayScreen, week:weekScreen, tips:tipsScreen, article:articleScreen, orders:ordersScreen, flags:flagsScreen, family:familyScreen, search:searchScreen, vaccines:vaccinesScreen, growth:growthScreen, feed:feedScreen, feedback:feedbackScreen, faq:faqScreen}[S.tab]();
+  view.innerHTML = {today:todayScreen, week:weekScreen, tips:tipsScreen, article:articleScreen, orders:ordersScreen, flags:flagsScreen, family:familyScreen, search:searchScreen, vaccines:vaccinesScreen, growth:growthScreen, feed:feedScreen, feedback:feedbackScreen, faq:faqScreen, rhymes:rhymesScreen}[S.tab]();
   if (S.tab === "faq" || (S.tab === "family" && S.setSec === "install")) mountDemos(view);
   if (S.rtAsk && ["orders", "week", "today"].includes(S.tab)) view.insertAdjacentHTML("afterbegin", rtAskBlock());
   if (keepTips && S.tab === "tips") restoreTips(keepTips);
@@ -2694,7 +2711,10 @@ view.addEventListener("click", async e => {
   if (d.art) return openArticle(d.art);
   if (d.bm) { const k = bKey(d.bm); toast(isOn(k) ? "Убрано из сохранённых" : "Сохранено в «Советах»"); return setCheck(k, isOn(k) ? 0 : 1); }
   if (d.artgo) { const a = articleOf(d.artgo); if (a.go.routine) { const kid = G()?.kids[0]; if (kid) openHints.add(`h:c${kid.id}:d:${S.today}:${a.go.routine}`); S.day = null; } go(a.go.tab); return a.go.routine && setTimeout(() => view.querySelector(".info[aria-expanded='true']")?.scrollIntoView({block:"center"}), 50); }
-  if (t.hasAttribute("data-back")) { const to = S.tab === "article" ? (S.artFrom || "tips") : (S.weekFrom && S.weekFrom !== "week" ? S.weekFrom : "today"); go(to); if (to === "tips") { restoreTips(S.tipsBack); S.tipsBack = null; } return; }
+  if (t.hasAttribute("data-rhnext")) { S.rhShift = (S.rhShift || 0) + 1; haptic(); return render(); }
+  if (t.hasAttribute("data-rhall")) { go("rhymes"); return window.scrollTo(0, 0); }
+  if (d.rhlang) { S.rhLang = d.rhlang; haptic(); return render(); }
+  if (t.hasAttribute("data-back")) { const to = S.tab === "article" ? (S.artFrom || "tips") : S.tab === "rhymes" ? "today" : (S.weekFrom && S.weekFrom !== "week" ? S.weekFrom : "today"); go(to); if (to === "tips") { restoreTips(S.tipsBack); S.tipsBack = null; } return; }
   if (d.hint) { openHints.has(d.hint) ? openHints.delete(d.hint) : openHints.add(d.hint); haptic(); return render(); }
   if (d.wk) { S.week = Number(d.wk); render(); return window.scrollTo(0,0); }
   if (d.fstart) return feedAct("start", {child_id:feedKid(G()).id, side:d.fstart}, "Кормление началось");

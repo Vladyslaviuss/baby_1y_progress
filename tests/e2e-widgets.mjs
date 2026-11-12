@@ -62,6 +62,20 @@ try {
   s = await wq(2, m2, "f:s"); ok(s && s.err, "чужой пользователь: не найдено");
   s = await wq(1, 999, "x:1"); ok(s && s.err, "неизвестная кнопка: ответ с ошибкой");
 
+  // сон: виджет с «Проснулась»
+  const sl = await post("/api/sleep/start", {child_id:kid1}, 1);
+  await post("/api/sleep/away", {id:sl.id}, 1);
+  const sw = last("sendWidget");
+  ok(sw && /Рита спит/.test(sw.body.caption) && /Проснулась/.test(sw.body.html) && JSON.parse(sw.body.chat_data).s > 0, "сон: виджет админу");
+  const ms = mid;
+  ok((await wq(1, ms, "s:t"))?.n > 0, "s:t: серверное время");
+  s = await wq(1, ms, "s:w"); ok(s && s.e > 0 && s.z, "s:w: проснулась, состояние закрыто");
+  ok(/Сон записан/.test(calls.filter(c => c.m === "editMessageCaption").at(-1)?.body.caption || ""), "сон: подпись — записан");
+  s = await wq(1, ms, "s:w"); ok(s && s.e > 0, "s:w повторно: просто состояние");
+  const sls = (await get("/api/state", 1)).sleeps || [];
+  ok(sls.length === 1 && sls[0].end_at, "сон в базе закрыт");
+  s = await wq(2, ms, "s:w"); ok(s && s.err, "сон: чужой — не найден");
+
   // не админ: как раньше
   const r2 = await post("/api/feed/start", {child_id:kid2, side:"R"}, 2);
   await post("/api/feed/away", {id:r2.id}, 2);

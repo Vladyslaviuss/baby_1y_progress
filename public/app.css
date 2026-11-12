@@ -1346,3 +1346,17 @@ span.lw{cursor:default}
 #glater summary{cursor:pointer;font:600 16px var(--body)}
 .g-month{margin:16px 0 4px;font:600 12px var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .g-why{grid-column:1 / -1;margin:2px 0 0 36px;font-size:13px;line-height:1.45;color:var(--muted)}
+
+/* потешки: «потешка дня» под пунктом «Песни» и экран со всеми */
+.rh-day{margin:2px 0 10px 34px;padding:12px 14px;border-radius:16px;background:color-mix(in oklab,var(--lav) 45%,var(--card))}
+.rh-head{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.rh-head b{font-size:15px}
+.rhyme .rh-x{white-space:pre-line;margin:0 0 8px;font-size:15px;line-height:1.5}
+.rhyme .rh-how{margin:0;font-size:13px;line-height:1.4;color:var(--muted)}
+.rh-act{display:flex;gap:16px;margin-top:8px;font-size:13.5px}
+.rh-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px}
+.rh-tabs button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font:inherit;font-size:13.5px}
+.rh-tabs button.on{background:var(--fg);color:var(--card);border-color:var(--fg)}
+.rh-item{border-top:1px solid var(--line);padding:10px 0}
+.rh-item summary{cursor:pointer;font-weight:600;list-style-position:outside}
+.rh-item .rhyme{padding:8px 0 2px}

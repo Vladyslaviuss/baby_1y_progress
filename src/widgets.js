@@ -114,3 +114,39 @@ export async function monthWidgetHtml(env, uid, {title, k, items, ofYear, usuall
     + `<div class="m">${escH(t(note))}</div>`;
   return pack(MONTH_CSS) + body + MONTH_JS.replace("__K__", js(k));
 }
+
+// ---------- таймер сна ----------
+// Состояние: {s начало, e конец, a «21:40», z «06:15»}. Кнопка «Проснулась» — запрос s:w, s:t — серверное время.
+const SLEEP_JS = `<script>
+const W=window.TelegramWidget,L=__L__,$=i=>document.getElementById(i);
+let S=__S__,off=0,busy=0;
+const rd=()=>{try{const n=JSON.parse(W.chatData);if(n)S=n}catch(x){}};
+if(W)rd();
+const f2=n=>String(n).padStart(2,"0");
+const len=()=>Math.max(0,(S.e||Date.now()+off)-S.s);
+const clock=ms=>{const s=Math.floor(ms/1e3),h=Math.floor(s/3600),m=Math.floor(s/60)%60;return(h?h+":"+f2(m):m)+":"+f2(s%60)};
+const dur=ms=>{const m=Math.round(ms/6e4);return m<60?m+" "+L.mi:Math.floor(m/60)+" "+L.h+" "+m%60+" "+L.mi};
+function tick(){const l=len();$("t").textContent=S.e?dur(l):clock(l);$("b").style.width=S.e?"0":Math.floor(l/1e3)%60/59*100+"%"}
+function draw(){
+$("w").className=S.e?"dn":"";
+$("h").textContent=S.e?L.done:L.on;
+$("m").textContent=S.e?L.kid+" · "+S.a+"–"+S.z:L.fell+" "+S.a;
+const k=$("k");k.replaceChildren();
+if(!S.e){const b=document.createElement("button");b.textContent=L.wake;b.onclick=()=>act(b);const r=document.createElement("div");r.className="r";r.append(b);k.append(r)}
+tick()}
+function act(b){if(busy||!W)return;busy=1;b.disabled=true;$("e").textContent="";
+W.request("s:w").then(x=>{busy=0;try{const n=JSON.parse(x.result);if(n.err)$("e").textContent=n.err;else S=n}catch(y){}try{W.HapticFeedback.notificationOccurred("success")}catch(y){}draw()},
+er=>{busy=0;b.disabled=false;$("e").textContent=L.err+" ("+er.code+")"})}
+if(W){W.onEvent("chatDataChanged",()=>{rd();draw()});
+busy=1;W.request("s:t").then(x=>{busy=0;try{const n=JSON.parse(x.result);if(n.n)off=n.n-Date.now()}catch(y){}tick()},()=>{busy=0})}
+draw();setInterval(tick,1e3);
+</script>`;
+export function sleepState(s, hm){
+  return {s:s.start_at, e:s.end_at || 0, a:hm(s.start_at), z:s.end_at ? hm(s.end_at) : ""};
+}
+export async function sleepWidgetHtml(env, uid, s, kidName, girl){
+  const l = await langOf(env, uid), t = x => trFor(l, x);
+  const L = {on:`😴 ${kidName} ${t("спит")}`, done:"✅ " + t("Сон записан"), kid:kidName, fell:t(girl ? "Уснула в" : "Уснул в"),
+    wake:"☀️ " + t(girl ? "Проснулась" : "Проснулся"), mi:t("мин"), h:t("ч"), err:t("Не отправилось, попробуй ещё раз")};
+  return pack(FEED_CSS) + FEED_BODY + SLEEP_JS.replace("__L__", js(L)).replace("__S__", js(sleepState(s, () => "")));
+}

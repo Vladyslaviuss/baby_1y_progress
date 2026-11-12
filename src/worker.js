@@ -6,7 +6,7 @@ import { LANGS, DEFAULT_LANG } from "../public/i18n.js";
 const LANG_IDS = LANGS.map(l => l[0]);
 import { feedApi, onFeedCallback, onFeedWidget, feedTick, familyFeeds, feedAwayFor } from "./feed.js";
 import { widgetsOn, monthWidgetHtml } from "./widgets.js";
-import { sleepApi, familySleeps, onSleepCallback, sleepTick, sleepAwayFor } from "./sleep.js";
+import { sleepApi, familySleeps, onSleepCallback, onSleepWidget, sleepTick, sleepAwayFor } from "./sleep.js";
 
 const TZ = "Europe/Kyiv";
 const todayKyiv = () => new Intl.DateTimeFormat("en-CA", {timeZone:TZ}).format(new Date());
@@ -1288,7 +1288,7 @@ export default {
         if (upd.message) await onMessage(env, upd.message);
         if (upd.callback_query) await seen(env, upd.callback_query.from, "bot");
         // кнопки внутри HTML-виджетов: ответить надо на каждый запрос за 15 с, иначе у виджета TIMEOUT
-        if (upd.widget_query && !(await onFeedWidget(env, upd.widget_query)))
+        if (upd.widget_query && !(await onFeedWidget(env, upd.widget_query)) && !(await onSleepWidget(env, upd.widget_query)))
           await tg(env, "answerWidgetQuery", {widget_query_id:upd.widget_query.id, data:JSON.stringify({err:"Не понял кнопку"})});
         if (upd.callback_query?.data === "gatecheck") await onGateCallback(env, upd.callback_query);
         else if (upd.callback_query?.data?.startsWith("gear:")) await onGearCallback(env, upd.callback_query);
