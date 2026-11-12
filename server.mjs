@@ -156,7 +156,7 @@ createServer(async (req, res) => {
       for (const set of streams.values()) for (const s of [...set]) if (s.web && !webUserSync(s.web)) { set.delete(s); s.res.end(); }
     // изменение прошло — сообщить остальным в семье
     // отзыв — личное: второму родителю о нём ничего не показываем
-    if (req.method === "POST" && url.pathname.startsWith("/api/") && !url.pathname.startsWith("/api/export") && !url.pathname.startsWith("/api/feedback") && !url.pathname.startsWith("/api/web/") && r.ok) {
+    if (req.method === "POST" && url.pathname.startsWith("/api/") && !url.pathname.startsWith("/api/export") && !url.pathname.startsWith("/api/feedback") && !url.pathname.startsWith("/api/web/") && !url.pathname.startsWith("/api/news") && r.ok) {
       const user = await userFrom(req.headers["x-init-data"], req.headers["x-dev-user"], req.headers["x-web-token"]);
       const fid = user && familyOf(user.id);
       if (fid) { let id = null, val = null; try { const j = JSON.parse(body?.toString() || "{}"); id = j.id ?? null; val = j.val ?? null; } catch {}

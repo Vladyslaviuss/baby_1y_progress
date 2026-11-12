@@ -6,6 +6,7 @@ import { W, Q, QT, QH, QA, PHASES, GEAR, GH, GCAT, GEAR_SKIP, isBase, NOTICES, n
 import { animHTML, startPict } from "./anim.js";
 import { LANGS, DEFAULT_LANG, setLang, setNames, setBoy, isBoy, watchDom, tr, getLang } from "./i18n.js";
 import { RHYMES, RHYME_LANGS, rhymeOfDay, ownRhyme } from "./rhymes.js";
+import { NEWS, unseenNews } from "./changelog.js";
 import { TIP_SECS, ARTICLES, articleOf, related } from "./tips.js";
 import { photoOf } from "./photos.js";
 import { pictScene, pictSvg, PICT } from "./pict.js";
@@ -161,6 +162,20 @@ async function load(){
     if (x && isOn(x.key)) return openNoticeArchive();
   }
   if (!S.error && !S.onboarding) celebrateCheck();
+  if (!S.error && !S.onboarding) newsCheck();
+}
+// «Что нового» (public/changelog.js): один раз после обновления; после праздника месяца/недели, не поверх него
+function newsCheck(){
+  if (newsCheck.done || S.demo || S.onboarding || S.error || S.showInvite || !NEWS.length) return;
+  const list = unseenNews(S.newsSeen); if (!list.length) return;
+  if (!overlay.hidden || !sheet.hidden) return setTimeout(newsCheck, 1500);
+  newsCheck.done = true;
+  const loc = getLang() === "ru" ? "ru-RU" : "uk-UA", date = id => new Intl.DateTimeFormat(loc, {day:"numeric", month:"long", timeZone:"UTC"}).format(new Date(id.slice(0, 10) + "T00:00:00Z"));
+  openSheet(`<div class="sheet-head"><h2 class="plain">Что нового</h2><button type="button" class="sheet-x" data-sheet-close aria-label="Закрыть">×</button></div>
+    <div class="panel news">${list.slice(0, 3).map(n => `<span class="eyebrow">${date(n.id)}</span><ul>${n.items.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`).join("")}
+    <button type="button" class="btn" data-sheet-close>Понятно</button></div>`);
+  S.newsSeen = NEWS[0].id;
+  call("/api/news/seen", {id:NEWS[0].id}).catch(() => {});
 }
 function toast(t){
   const el = document.getElementById("toast"); el.textContent = t; el.hidden = false;
@@ -1566,25 +1581,27 @@ const rhLiked = r => r.own || isOn(`r:${r.id}`);
 const ourRhymes = () => allRhymes().filter(rhLiked);
 const rhHow = r => r.how?.[getLang() === "ru" ? "ru" : "uk"] || "";
 const rhLang = l => l === "ru" || l === "uk" || l === "en" ? l : "";
+// Сердце — SVG, не эмодзи: эмодзи на разных телефонах разного размера и не встают по центру
+const HEART = `<svg class="ic-heart" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 20.5s-7-4.35-9.33-8.67C1.07 8.86 2.8 5 6.5 5c2.06 0 3.5 1.12 4.5 2.6C12 6.12 13.44 5 15.5 5c3.7 0 5.43 3.86 3.83 6.83C17 16.15 12 20.5 12 20.5z"/></svg>`;
 const rhLike = r => r.own ? `<button type="button" class="rh-edit" data-rhedit="${r.cid}">Изменить</button>`
-  : `<button type="button" class="rh-like ${rhLiked(r) ? "on" : ""}" data-rhlike="${r.id}" aria-pressed="${rhLiked(r)}" aria-label="${rhLiked(r) ? "Убрать из наших" : "В наши потешки"}">${rhLiked(r) ? "❤️" : "🤍"}</button>`;
+  : `<button type="button" class="rh-like ${rhLiked(r) ? "on" : ""}" data-rhlike="${r.id}" aria-pressed="${rhLiked(r)}">${HEART}<span>${rhLiked(r) ? "В наших" : "В наши"}</span></button>`;
 const rhymeCard = r => `<div class="rhyme"><p class="rh-x" translate="no" lang="${rhLang(r.lang)}">${esc(r.x)}</p>${rhHow(r) ? `<p class="rh-how" translate="no" lang="${getLang()}">👐 ${esc(rhHow(r))}</p>` : ""}</div>`;
 function rhymeDay(g, day){
   const r = rhymeOfDay(day, getLang(), ageOf(g.date, day).months, S.rhShift || 0, ourRhymes()); if (!r) return "";
-  return `<div class="rh-day"><div class="rh-head"><div><span class="eyebrow">Потешка дня</span><b translate="no" lang="${rhLang(r.lang)}">${r.ic} ${esc(r.t)}</b></div>${rhLike(r)}</div>${rhymeCard(r)}
-    <div class="rh-act"><button type="button" class="link" data-rhnext>Другая</button><button type="button" class="link" data-rhall>Все потешки (${allRhymes().length})</button></div></div>`;
+  return `<div class="rh-day"><div class="rh-head"><span class="eyebrow">Потешка дня</span><b translate="no" lang="${rhLang(r.lang)}">${r.ic} ${esc(r.t)}</b></div>${rhymeCard(r)}
+    <div class="rh-act">${rhLike(r)}<button type="button" class="link" data-rhnext>Другая</button><button type="button" class="link" data-rhall>Все потешки (${allRhymes().length})</button></div></div>`;
 }
 function rhymesScreen(){
   const ours = ourRhymes(), f = S.rhLang === "our" && !ours.length ? "all" : S.rhLang || "all";
   const list = f === "our" ? ours : allRhymes().filter(r => f === "all" || r.lang === f);
-  const tabs = [["all", "Все"], ["our", `❤️ Наши · ${ours.length}`], ...Object.entries(RHYME_LANGS)];
+  const tabs = [["all", "Все"], ["our", `${HEART}Наши · ${ours.length}`], ...Object.entries(RHYME_LANGS)];
   return `${demoBar()}<button type="button" class="link back" data-back>← Назад</button><div class="panel"><h2>Потешки</h2>
     <p class="muted">Стишки с касаниями: ручки, пальчики, ножки, животик. Одни и те же — по многу раз: малышу нравится узнавать и ждать конца.</p>
-    <p class="note-small">❤️ — в подборку «Наши»: она общая для обоих родителей, и потешка дня чаще берётся из неё.</p>
+    <p class="note-small">«В наши» — в подборку «Наши»: она общая для обоих родителей, и потешка дня чаще берётся из неё.</p>
     <button type="button" class="btn ghost" data-rhnew>+ Своя потешка</button>
     <div class="rh-tabs">${tabs.map(([k, v]) => `<button type="button" class="${f === k ? "on" : ""}" data-rhlang="${k}">${RHYME_LANGS[k] ? `<span translate="no">${v}</span>` : v}</button>`).join("")}</div>
-    ${list.length ? list.map(r => `<details class="rh-item"${S.rhOpen === r.id ? " open" : ""}><summary><span translate="no" lang="${rhLang(r.lang)}">${r.ic} ${esc(r.t)}</span>${rhLiked(r) && !r.own ? `<i class="rh-heart" aria-label="в наших">❤️</i>` : ""}</summary>${rhymeCard(r)}<div class="rh-act">${rhLike(r)}</div></details>`).join("")
-      : `<p class="empty">Пока пусто: нажми 🤍 у понравившейся или добавь свою.</p>`}</div>`;
+    ${list.length ? list.map(r => `<details class="rh-item"${S.rhOpen === r.id ? " open" : ""}><summary><span translate="no" lang="${rhLang(r.lang)}">${r.ic} ${esc(r.t)}</span>${rhLiked(r) && !r.own ? `<i class="rh-heart" title="в наших">${HEART}</i>` : ""}</summary>${rhymeCard(r)}<div class="rh-act">${rhLike(r)}</div></details>`).join("")
+      : `<p class="empty">Пока пусто: нажми «В наши» у понравившейся или добавь свою.</p>`}</div>`;
 }
 // Форма своей потешки: новая или правка
 function openRhymeForm(cid){
@@ -2512,6 +2529,7 @@ function liveLabel(m){
   if (m.path.startsWith("/api/vacc")) return "обновлены прививки";
   if (m.path.startsWith("/api/measure")) return "новый замер веса";
   if (m.path === "/api/routine") return "изменена рутина";
+  if (m.path.startsWith("/api/news")) return null;
   if (m.path === "/api/rhyme/save") return "своя потешка";
   if (m.path === "/api/rhyme/delete") return "удалена потешка";
   if (m.path.startsWith("/api/child")) return "обновлены данные ребёнка";

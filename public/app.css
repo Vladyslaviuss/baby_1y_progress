@@ -1361,14 +1361,32 @@ span.lw{cursor:default}
 .rh-item summary{cursor:pointer;font-weight:600;list-style-position:outside}
 .rh-item .rhyme{padding:8px 0 2px}
 
-.rh-head{flex-direction:row;justify-content:space-between;align-items:flex-start;gap:10px}
-.rh-head>div{display:flex;flex-direction:column;gap:2px}
-.rh-like{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--card);font-size:19px;line-height:1;cursor:pointer}
-.rh-like.on{border-color:color-mix(in oklab,var(--accent,#d23f75) 45%,var(--line))}
-.rh-edit{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font:inherit;font-size:13.5px;cursor:pointer}
+.rh-edit{-webkit-appearance:none;appearance:none;min-height:40px;border:1.5px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:0 14px;font:600 14px var(--body);cursor:pointer}
 .rh-item summary{display:flex;align-items:center;gap:8px}
 .rh-item summary span{flex:1}
 .rh-heart{font-style:normal;font-size:13px}
 .rh-item .rh-act{margin-top:2px}
 .rh-form .seg{flex-wrap:wrap}
 .flabel{font-size:13.5px;color:var(--muted)}
+
+/* «Что нового» */
+.news{display:grid;gap:8px}
+.news ul{margin:0 0 6px;padding-left:1.1em;display:grid;gap:6px;font-size:15px;line-height:1.45}
+.news .btn{justify-self:start;margin-top:4px}
+
+/* Круглые кнопки с иконкой: iOS Safari добавляет кнопкам свой padding и ставит svg по базовой линии — центруем явно */
+.search-icon,.sheet-x,.rset-btn,.info{-webkit-appearance:none;appearance:none;padding:0;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.search-icon svg,.rset-btn svg{display:block;flex:none}
+/* «В наши»: таблетка с сердцем — контур, а в подборке — залитое */
+.rh-act{align-items:center;flex-wrap:wrap}
+.rh-like{-webkit-appearance:none;appearance:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px 0 12px;border-radius:999px;
+  border:1.5px solid var(--line);background:var(--card);color:var(--fg);font:600 14px var(--body);line-height:1;cursor:pointer;width:auto;height:auto;font-size:14px}
+.rh-like .ic-heart{fill:none;stroke:currentColor;stroke-width:1.8;flex:none;display:block;transition:transform .18s ease}
+.rh-like.on{border-color:#d23f75;background:color-mix(in oklab,#d23f75 12%,var(--card));color:#b8325f}
+.rh-like.on .ic-heart{fill:#d23f75;stroke:#d23f75}
+.rh-like:active .ic-heart{transform:scale(1.25)}
+.rh-heart{display:inline-flex}
+.rh-heart .ic-heart{fill:#d23f75;stroke:none;width:16px;height:16px}
+.rh-tabs .ic-heart{fill:#d23f75;stroke:none;width:14px;height:14px;vertical-align:-2px;margin-right:4px}
+.rh-tabs button.on .ic-heart{fill:currentColor}
+@media (prefers-color-scheme:dark){.rh-like.on{color:#f08bb0}}

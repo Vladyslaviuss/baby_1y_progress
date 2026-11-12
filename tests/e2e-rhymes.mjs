@@ -1,4 +1,4 @@
-// npm run test:rhymes. Потешки: лайки (r:<id>, общие на семью), свои потешки (API, чужая семья, экспорт/импорт), экран в мини-приложении.
+// npm run test:rhymes. «Что нового» и потешки: лайки (r:<id>, общие на семью), свои потешки (API, чужая семья, экспорт/импорт), экран в мини-приложении.
 import {spawn} from "node:child_process";
 import http from "node:http";
 import fs from "node:fs";
@@ -27,6 +27,12 @@ try {
   await post("/api/onboard", {children:[{name:"Рита", birth:add(T, -140), sex:"girl"}], role:"papa", my_name:"Влад", color:"raspberry", modules:{}}, 1);
   await post("/api/onboard", {children:[{name:"Марк", birth:add(T, -140), sex:"boy"}], role:"papa", my_name:"Иван", color:"raspberry", modules:{}}, 2);
   await post("/api/lang", {lang:"ru"}, 1);
+
+  // «Что нового»: новичку — уже «видел всё»; кривой id — 400; запомнили старое — окно покажет новое
+  const {NEWS} = await import("file:///" + BOT + "/public/changelog.js");
+  ok((await get("/api/state", 1)).newsSeen === NEWS[0].id, "новости: новичку окно не нужно");
+  ok((await post("/api/news/seen", {id:"1999-01-01"}, 1)).status === 400, "новости: неизвестный id — 400");
+  ok((await post("/api/news/seen", {id:NEWS.at(-1).id}, 1)).ok && (await get("/api/state", 1)).newsSeen === NEWS.at(-1).id, "новости: увиденное запомнено");
 
   // лайк встроенной
   ok((await post("/api/check", {id:"r:ru-meduzy", val:1}, 1)).ok, "лайк: отметка r:ru-meduzy принята");
@@ -65,6 +71,13 @@ try {
   p.on("dialog", d => d.accept());
   await p.goto(`${U}/?dev_user=1&dev_name=Vlad`, {waitUntil:"load"});
   await p.waitForSelector(".rh-day", {timeout:15000});
+  await p.waitForSelector(".sheet-card .news", {timeout:5000}).catch(() => {});
+  const news = await p.locator(".sheet-card .news").count() ? await p.locator(".sheet-card .news").innerText() : "";
+  ok(news.includes(NEWS[0].items[0].slice(3, 30)) && (NEWS.length < 2 || !news.includes(NEWS.at(-1).items[0].slice(3, 30))), "новости: окно с новым, без уже увиденного");
+  if (news) { await p.locator(".news [data-sheet-close]").click(); await p.waitForTimeout(300); }
+  ok((await get("/api/state", 1)).newsSeen === NEWS[0].id, "новости: после показа — отмечено на сервере");
+  await p.reload({waitUntil:"load"}); await p.waitForSelector(".rh-day", {timeout:15000}); await p.waitForTimeout(800);
+  ok(await p.locator(".sheet-card .news").count() === 0, "новости: второй раз не показывается");
   await p.evaluate(() => { const o = document.getElementById("overlay"); if (o) { o.hidden = true; o.innerHTML = ""; } });
   ok(await p.locator(".rh-day .rh-like").count() === 1, "потешка дня: сердечко");
   await p.locator("[data-rhall]").click(); await p.waitForSelector(".rh-tabs");

@@ -1,6 +1,7 @@
 import { W, ageOf, plural, gearForWeek, flagsFor, urgentFor, routineForWeek, MONTHLY, monthWord,
          COLORS, dative, genitive, GEAR, gearStage, isBase, NOTICES, noticeSeason, orderWeek, inSeason, FIRST_AID, EMERGENCY, VACCINES, vaccinePlan, vaccineDue, vaccineKind, leapOf, routineFor, remindersFor, cleanRoutineCfg, pickTip, DAY_TIPS } from "../public/data.js";
 import { CARDS_VERSION } from "./cards-version.js";
+import { NEWS } from "../public/changelog.js";
 import { tg, tgDocument, verifyInitData, forgetLang, langOf, localize } from "./tg.js";
 import { LANGS, DEFAULT_LANG } from "../public/i18n.js";
 const LANG_IDS = LANGS.map(l => l[0]);
@@ -981,7 +982,10 @@ async function api(env, req, path){
     const feeds = await familyFeeds(env, fid, Date.now() - 31 * 864e5), sleeps = await familySleeps(env, fid, Date.now() - 31 * 864e5);
     const famRow = await env.DB.prepare("SELECT modules, routine FROM families WHERE id=?").bind(fid).first();
     const rhymes = await familyRhymes(env, fid);
-    return json({today, now:Date.now(), rhymes, children, members:await familyMembers(env, fid), me:user.id, owner:!!me.owner, role:me.role || null, modules:modulesOf(famRow), routine:routineCfg(famRow), tip:await familyTip(env, fid, children, today), lang:myLang, checks, since, routineDays, vaccines, measures, feeds, sleeps, prefs:{morning:!(await morningOff(env, user.id))}, ...(isAdmin(env, user.id) ? {admin:true} : {})});
+    // «Что нового»: что уже видел; новичкам (в семье меньше 2 дней) — как будто видели всё, им окно не нужно
+    const newsSeen = (await env.DB.prepare("SELECT v FROM settings WHERE k=?").bind(`news_seen:${user.id}`).first())?.v
+      || (me.created && Date.now() - me.created < 2 * 864e5 ? NEWS[0]?.id : null) || null;
+    return json({today, now:Date.now(), rhymes, newsSeen, children, members:await familyMembers(env, fid), me:user.id, owner:!!me.owner, role:me.role || null, modules:modulesOf(famRow), routine:routineCfg(famRow), tip:await familyTip(env, fid, children, today), lang:myLang, checks, since, routineDays, vaccines, measures, feeds, sleeps, prefs:{morning:!(await morningOff(env, user.id))}, ...(isAdmin(env, user.id) ? {admin:true} : {})});
   }
   if (path === "/api/day" && req.method === "GET") {        // отметки рутины за один старый день (календарь)
     const date = isoOrNull(new URL(req.url).searchParams.get("date")); if (!realDay(date)) return json({error:"bad date"}, 400);
@@ -1003,6 +1007,12 @@ async function api(env, req, path){
     if (v === 2 && !id.startsWith("o:")) return json({error:"val 2 only for things"}, 400);   // «не нужно» — только у вещей
     await env.DB.prepare("INSERT INTO checks(family_id,id,val,by_user,at) VALUES(?,?,?,?,?) ON CONFLICT(family_id,id) DO UPDATE SET val=excluded.val, by_user=excluded.by_user, at=excluded.at")
       .bind(fid, id, v, user.id, Date.now()).run();
+    return json({ok:true});
+  }
+  if (path === "/api/news/seen" && req.method === "POST") {   // окно «Что нового» показано
+    const id = String(body.id || "");
+    if (!NEWS.some(n => n.id === id)) return json({error:"bad id"}, 400);
+    await env.DB.prepare("INSERT OR REPLACE INTO settings(k, v) VALUES(?,?)").bind(`news_seen:${user.id}`, id).run();
     return json({ok:true});
   }
   if (path === "/api/rhyme/save" && req.method === "POST") {   // своя потешка: новая или правка
