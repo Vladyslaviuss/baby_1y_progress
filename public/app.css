@@ -1400,3 +1400,14 @@ span.lw{cursor:default}
 .rmedia .yt{margin:10px 0 4px}
 .rvid-w{margin:0 0 10px 4px;font-size:12.5px;line-height:1.4;color:var(--muted)}
 .rmedia .yt{grid-template-columns:1fr;gap:8px}
+
+/* потешка дня: стрелки листания */
+.rh-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.rh-top .rh-head{flex:1;min-width:0;margin:0;text-align:center;align-items:center}
+.rh-age{font-size:12px;color:var(--muted)}
+.rh-arr{-webkit-appearance:none;appearance:none;flex:none;width:40px;height:40px;padding:0;border-radius:50%;border:1.5px solid var(--line);
+  background:var(--card);color:var(--fg);display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.rh-arr svg{display:block;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.rh-arr:active{transform:scale(.92)}
+.rh-act [data-rhours]{display:inline-flex;align-items:center;gap:4px}
+.rh-act [data-rhours] .ic-heart{width:15px;height:15px;fill:#d23f75;stroke:none}

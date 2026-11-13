@@ -5,7 +5,7 @@ import { W, Q, QT, QH, QA, PHASES, GEAR, GH, GCAT, GEAR_SKIP, isBase, NOTICES, n
          LEAP_WEEKS, LEAP_PEAKS, leapOf, LEAP_KIND, LEAP_PEAK, LEAP_NOTE } from "./data.js";
 import { animHTML, startPict } from "./anim.js";
 import { LANGS, DEFAULT_LANG, setLang, setNames, setBoy, isBoy, watchDom, tr, getLang } from "./i18n.js";
-import { RHYMES, RHYME_LANGS, rhymeOfDay, ownRhyme } from "./rhymes.js";
+import { RHYMES, RHYME_LANGS, rhymeOfDay, rhymeList, ownRhyme } from "./rhymes.js";
 import { NEWS, unseenNews } from "./changelog.js";
 import { RMEDIA } from "./media.js";
 import { TIP_SECS, ARTICLES, articleOf, related } from "./tips.js";
@@ -1596,10 +1596,19 @@ const HEART = `<svg class="ic-heart" viewBox="0 0 24 24" width="18" height="18" 
 const rhLike = r => r.own ? `<button type="button" class="rh-edit" data-rhedit="${r.cid}">Изменить</button>`
   : `<button type="button" class="rh-like ${rhLiked(r) ? "on" : ""}" data-rhlike="${r.id}" aria-pressed="${rhLiked(r)}">${HEART}<span>${rhLiked(r) ? "В наших" : "В наши"}</span></button>`;
 const rhymeCard = r => `<div class="rhyme"><p class="rh-x" translate="no" lang="${rhLang(r.lang)}">${esc(r.x)}</p>${rhHow(r) ? `<p class="rh-how" translate="no" lang="${getLang()}">👐 ${esc(rhHow(r))}</p>` : ""}</div>`;
+// Потешка дня + стрелки по всем потешкам по кругу. Что на экране — запоминаем (S.rhCur = {day,id,moved}),
+// чтобы лайк (он меняет «Наши», а с ними выбор дня) не перескакивал на другую потешку
+const ARR_L = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>`;
+const ARR_R = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`;
 function rhymeDay(g, day){
-  const r = rhymeOfDay(day, getLang(), ageOf(g.date, day).months, S.rhShift || 0, ourRhymes()); if (!r) return "";
-  return `<div class="rh-day"><div class="rh-head"><span class="eyebrow">Потешка дня</span><b translate="no" lang="${rhLang(r.lang)}">${r.ic} ${esc(r.t)}</b></div>${rhymeCard(r)}
-    <div class="rh-act">${rhLike(r)}<button type="button" class="link" data-rhnext>Другая</button><button type="button" class="link" data-rhall>Все потешки (${allRhymes().length})</button></div></div>`;
+  const months = ageOf(g.date, day).months, list = rhymeList(allRhymes(), getLang(), months), ours = ourRhymes();
+  let i = S.rhCur?.day === day ? list.findIndex(x => x.id === S.rhCur.id) : -1;
+  if (i < 0) { i = rhymeOfDay(day, list, months, ours); if (i < 0) return ""; S.rhCur = {day, id:list[i].id, moved:false}; }
+  const r = list[i], at = k => list[(i + k + list.length) % list.length].id;
+  return `<div class="rh-day"><div class="rh-top"><button type="button" class="rh-arr" data-rhgo="${at(-1)}" data-rhday="${day}" aria-label="Предыдущая">${ARR_L}</button>
+      <div class="rh-head"><span class="eyebrow">${S.rhCur.moved ? "Потешка" : "Потешка дня"} · ${i + 1} из ${list.length}</span><b translate="no" lang="${rhLang(r.lang)}">${r.ic} ${esc(r.t)}</b>${r.age > months ? `<span class="rh-age">лучше с ${r.age} мес.</span>` : ""}</div>
+      <button type="button" class="rh-arr" data-rhgo="${at(1)}" data-rhday="${day}" aria-label="Следующая">${ARR_R}</button></div>${rhymeCard(r)}
+    <div class="rh-act">${rhLike(r)}<button type="button" class="link" data-rhours>${HEART}Наши · ${ours.length}</button><button type="button" class="link" data-rhall>Все</button></div></div>`;
 }
 function rhymesScreen(){
   const ours = ourRhymes(), f = S.rhLang === "our" && !ours.length ? "all" : S.rhLang || "all";
@@ -2794,8 +2803,9 @@ view.addEventListener("click", async e => {
   if (d.art) return openArticle(d.art);
   if (d.bm) { const k = bKey(d.bm); toast(isOn(k) ? "Убрано из сохранённых" : "Сохранено в «Советах»"); return setCheck(k, isOn(k) ? 0 : 1); }
   if (d.artgo) { const a = articleOf(d.artgo); if (a.go.routine) { const kid = G()?.kids[0]; if (kid) openHints.add(`h:c${kid.id}:d:${S.today}:${a.go.routine}`); S.day = null; } go(a.go.tab); return a.go.routine && setTimeout(() => view.querySelector(".info[aria-expanded='true']")?.scrollIntoView({block:"center"}), 50); }
-  if (t.hasAttribute("data-rhnext")) { S.rhShift = (S.rhShift || 0) + 1; haptic(); return render(); }
-  if (t.hasAttribute("data-rhall")) { go("rhymes"); return window.scrollTo(0, 0); }
+  if (d.rhgo) { S.rhCur = {day:d.rhday, id:d.rhgo, moved:true}; haptic(); return render(); }
+  if (t.hasAttribute("data-rhall")) { S.rhLang = "all"; go("rhymes"); return window.scrollTo(0, 0); }
+  if (t.hasAttribute("data-rhours")) { S.rhLang = "our"; S.rhOpen = null; go("rhymes"); return window.scrollTo(0, 0); }
   if (d.rhlang) { S.rhLang = d.rhlang; S.rhOpen = null; haptic(); return render(); }
   if (d.rhlike) { const on = !isOn(`r:${d.rhlike}`); S.rhOpen = d.rhlike; if (on) toast("В «Наших» ❤️"); return setCheck(`r:${d.rhlike}`, on ? 1 : 0); }
   if (t.hasAttribute("data-rhnew")) return openRhymeForm();

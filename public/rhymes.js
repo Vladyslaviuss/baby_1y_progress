@@ -160,18 +160,20 @@ export const RHYMES = [
 export const RHYME_LANGS = {ru:"Русские", uk:"Українські", en:"English"};
 // Своя потешка из базы (family_rhymes) → в общий вид; id «my-N», лайк не нужен — свои всегда в «Наших»
 export const ownRhyme = r => ({id:`my-${r.id}`, cid:r.id, own:true, lang:r.lang, ic:"✍️", t:r.title, x:r.text, how:r.how ? {ru:r.how, uk:r.how} : null, age:0, by:r.by_user});
-// Пул «потешки дня»: язык интерфейса + английский, по возрасту
-export function rhymePool(lang, months){
-  const langs = lang === "ru" ? ["ru", "en"] : ["uk", "en"];
-  const pool = RHYMES.filter(r => langs.includes(r.lang) && r.age <= months);
-  return pool.length ? pool : RHYMES.filter(r => langs.includes(r.lang));
+// Порядок листания стрелками — ВСЕ потешки, каждая по разу: сначала по возрасту на языке интерфейса и английском,
+// потом по возрасту на другом языке, в конце — те, что на вырост
+export function rhymeList(all, lang, months){
+  const mine = lang === "ru" ? ["ru", "en"] : ["uk", "en"];
+  const rank = r => (r.age > months ? 2 : 0) + (mine.includes(r.lang) || r.own ? 0 : 1);
+  return all.map((r, i) => [r, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
 }
-// Одна и та же весь день, завтра — следующая; shift — «другая».
-// favs — свои и понравившиеся (на любом языке): идут через день, вперемешку с остальными
-export function rhymeOfDay(day, lang, months, shift = 0, favs = []){
-  const base = rhymePool(lang, months).filter(r => !favs.some(f => f.id === r.id));
-  const pool = !favs.length ? base : !base.length ? favs : base.flatMap((r, i) => [favs[i % favs.length], r]);
-  if (!pool.length) return null;
+// С какой открыть сегодня (номер в list): одна и та же весь день, завтра — следующая;
+// если есть «Наши» — через день из них
+export function rhymeOfDay(day, list, months, favs = []){
+  if (!list.length) return -1;
   const n = Math.floor(Date.parse(day + "T00:00:00Z") / 864e5);
-  return pool[((n + shift) % pool.length + pool.length) % pool.length];
+  if (favs.length && n % 2 === 0) { const f = favs[Math.floor(n / 2) % favs.length]; const i = list.findIndex(r => r.id === f.id); if (i >= 0) return i; }
+  const fit = list.filter(r => r.age <= months && !favs.some(f => f.id === r.id));
+  const pick = fit.length ? fit[n % fit.length] : list[n % list.length];
+  return list.indexOf(pick);
 }

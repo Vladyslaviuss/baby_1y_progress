@@ -80,6 +80,21 @@ try {
   ok(await p.locator(".sheet-card .news").count() === 0, "новости: второй раз не показывается");
   await p.evaluate(() => { const o = document.getElementById("overlay"); if (o) { o.hidden = true; o.innerHTML = ""; } });
   ok(await p.locator(".rh-day .rh-like").count() === 1, "потешка дня: сердечко");
+  const lbl = async () => p.locator(".rh-day .rh-head").innerText();
+  if (process.env.SHOT) await p.locator(".rh-day").screenshot({path:process.env.SHOT});
+  const total = Number((await lbl()).match(/из (\d+)/i)?.[1]);
+  ok(total === 50, `стрелки: листаются все (${total}) «${await lbl()}»`);
+  const seen = new Set();
+  for (let k = 0; k < total; k++) { seen.add((await lbl()).split("\n")[1]); await p.locator('.rh-day .rh-arr[aria-label="Следующая"]').click(); }
+  ok(seen.size === total, `стрелки: за круг ${seen.size} разных`);
+  const t1 = await lbl(); await p.locator('.rh-day .rh-arr[aria-label="Предыдущая"]').click(); await p.locator('.rh-day .rh-arr[aria-label="Следующая"]').click();
+  ok(await lbl() === t1, "стрелки: назад-вперёд — та же");
+  const t2 = (await lbl()).split("\n")[1]; await p.locator(".rh-day .rh-like").click(); await p.waitForTimeout(400);
+  ok((await lbl()).split("\n")[1] === t2, "лайк не перескакивает на другую потешку");
+  await p.locator(".rh-day .rh-like").click(); await p.waitForTimeout(400);
+  await p.locator("[data-rhours]").click(); await p.waitForSelector(".rh-tabs");
+  ok(/Наши/.test(await p.locator(".rh-tabs button.on").innerText()), "«Наши» из потешки дня — открыта вкладка «Наши»");
+  await p.locator("[data-back]").click(); await p.waitForSelector(".rh-day", {timeout:5000});
   await p.locator("[data-rhall]").click(); await p.waitForSelector(".rh-tabs");
   ok(/Наши · 1/.test(await p.locator(".rh-tabs").innerText()), "экран: «Наши · 1» (лайк из API)");
   await p.locator('[data-rhlang="en"]').click();
